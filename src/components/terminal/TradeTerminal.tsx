@@ -72,6 +72,17 @@ export function TradeTerminal({ initialCa = "" }: { initialCa?: string }) {
   const [loading, setLoading] = useState(false);
   const [tf, setTf] = useState<(typeof TFS)[number]>("1m");
   const [candles, setCandles] = useState<ChartCandle[]>([]);
+  const [liveTicks, setLiveTicks] = useState<ChartCandle[]>([]);
+
+  useEffect(() => {
+    const px = market?.priceEth;
+    if (!(px && px > 0)) return;
+    const now = Math.floor(Date.now() / 1000);
+    setLiveTicks((prev) => {
+      const next = [...prev, { time: now, open: px, high: px, low: px, close: px }];
+      return next.slice(-240);
+    });
+  }, [market?.priceEth]);
   const [candleNote, setCandleNote] = useState("");
   const [tape, setTape] = useState<TapeTrade[]>([]);
   const [tapeNote, setTapeNote] = useState("");
@@ -112,6 +123,7 @@ export function TradeTerminal({ initialCa = "" }: { initialCa?: string }) {
     setLoadErr(null);
     setMarket(null);
     setCandles([]);
+    setLiveTicks([]);
     setTape([]);
     setMarkers([]);
     try {
@@ -181,16 +193,35 @@ export function TradeTerminal({ initialCa = "" }: { initialCa?: string }) {
     }
   }, [market]);
 
+  const refreshMarkPrice = useCallback(async () => {
+    if (!market) return;
+    try {
+      const res = await fetch(
+        `/api/token?ca=${encodeURIComponent(market.token)}`
+      );
+      const data = await res.json();
+      if (data.ok && data.market?.priceEth > 0) {
+        setMarket((m) =>
+          m ? { ...m, priceEth: data.market.priceEth } : m
+        );
+      }
+    } catch {
+      /* soft */
+    }
+  }, [market]);
+
   useEffect(() => {
     refreshCandles();
     refreshTape();
-    const ms = tf === "1s" ? 2000 : tf === "1m" ? 15000 : 30000;
+    refreshMarkPrice();
+    const ms = tf === "1s" ? 1000 : tf === "1m" ? 5000 : tf === "5m" ? 10000 : 20000;
     const id = setInterval(() => {
       refreshCandles();
       refreshTape();
+      refreshMarkPrice();
     }, ms);
     return () => clearInterval(id);
-  }, [refreshCandles, refreshTape, tf]);
+  }, [refreshCandles, refreshTape, refreshMarkPrice, tf]);
 
   const refreshVault = useCallback(async () => {
     try {
@@ -438,7 +469,7 @@ export function TradeTerminal({ initialCa = "" }: { initialCa?: string }) {
   }
 
   const emptyChart =
-    !loading && market && candles.length === 0 && !market.priceEth;
+    !loading && market && candles.length === 0 && !(market.priceEth > 0);
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
@@ -515,15 +546,17 @@ export function TradeTerminal({ initialCa = "" }: { initialCa?: string }) {
           ))}
         </div>
 
-        {emptyChart || (!market && !loading) ? (
+        {!market && !loading ? (
           <div className="flex h-[360px] items-center justify-center rounded-xl border border-dashed border-[var(--cut)] text-sm text-[var(--muted)]">
-            {market
-              ? "No Swap history for this pool yet. Chart stays empty — no fake prints."
-              : "Paste a token CA and Load to open the live line chart."}
+            Paste a token CA and Load to open the live line chart.
+          </div>
+        ) : emptyChart ? (
+          <div className="flex h-[360px] items-center justify-center rounded-xl border border-dashed border-[var(--cut)] text-sm text-[var(--muted)]">
+            Waiting for mark price…
           </div>
         ) : (
           <LiveChart
-            candles={candles}
+            candles={liveTicks.length ? [...candles, ...liveTicks] : candles}
             markPrice={market?.priceEth}
             markers={markers}
             height={360}

@@ -51,6 +51,35 @@ export async function readVaultStats(eip1193?: Eip1193Provider) {
   };
 }
 
+export async function readLenderAccount(
+  eip1193: Eip1193Provider | undefined,
+  address: string
+) {
+  const { JsonRpcProvider } = await import("ethers");
+  const { ROBINHOOD_RPC } = await import("./robinhood");
+  const provider = eip1193
+    ? new BrowserProvider(eip1193)
+    : new JsonRpcProvider(ROBINHOOD_RPC);
+  const vault = new Contract(ADDRESSES.marginVault, VAULT_ABI, provider);
+  const [sharesBn, totalSharesBn, totalLenderEthBn, bal] = await Promise.all([
+    vault.lenderShares(address) as Promise<bigint>,
+    vault.totalShares() as Promise<bigint>,
+    vault.totalLenderEth() as Promise<bigint>,
+    provider.getBalance(ADDRESSES.marginVault),
+  ]);
+  const estimatedEthOutBn =
+    totalSharesBn > 0n
+      ? (sharesBn * totalLenderEthBn) / totalSharesBn
+      : 0n;
+  return {
+    shares: sharesBn.toString(),
+    totalShares: totalSharesBn.toString(),
+    totalLenderEth: formatEther(totalLenderEthBn),
+    estimatedEthOut: formatEther(estimatedEthOutBn),
+    freeEth: formatEther(bal),
+  };
+}
+
 export async function depositLender(params: {
   eip1193: Eip1193Provider;
   ethAmount: string;

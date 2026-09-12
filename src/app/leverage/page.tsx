@@ -11,9 +11,11 @@ import { UNISWAP_V2_ROUTER } from "@/lib/uniswap";
 import { ADDRESSES, explorerAddress } from "@/lib/robinhood";
 import {
   depositLender,
+  withdrawLender,
   fetchOpenPositions,
   closeLong,
   readVaultStats,
+  readLenderAccount,
 } from "@/lib/vault-client";
 import {
   TxConfirmSheet,
@@ -39,7 +41,14 @@ export default function LeveragePage() {
     totalDebtEth: string;
     maxLeverage: number;
   } | null>(null);
+  const [lender, setLender] = useState<{
+    shares: string;
+    totalShares: string;
+    estimatedEthOut: string;
+    freeEth: string;
+  } | null>(null);
   const [depositAmt, setDepositAmt] = useState("0.1");
+  const [withdrawShares, setWithdrawShares] = useState("");
   const [positions, setPositions] = useState<
     { id: number; token: string; marginEth: string; debtEth: string }[]
   >([]);
@@ -49,16 +58,17 @@ export default function LeveragePage() {
   const [sheetDetails, setSheetDetails] = useState<TxConfirmDetails | null>(
     null
   );
-  const [pending, setPending] = useState<"deposit" | "close" | null>(null);
+  const [pending, setPending] = useState<"deposit" | "withdraw" | "close" | null>(
+    null
+  );
   const [closeId, setCloseId] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
+    const eip = walletProvider
+      ? (walletProvider as unknown as import("ethers").Eip1193Provider)
+      : undefined;
     try {
-      const s = await readVaultStats(
-        walletProvider
-          ? (walletProvider as unknown as import("ethers").Eip1193Provider)
-          : undefined
-      );
+      const s = await readVaultStats(eip);
       setStats({
         freeEth: s.freeEth,
         totalLenderEth: s.totalLenderEth,
@@ -66,13 +76,19 @@ export default function LeveragePage() {
         maxLeverage: s.maxLeverage,
       });
       if (address) {
-        const pos = await fetchOpenPositions(
-          walletProvider
-            ? (walletProvider as unknown as import("ethers").Eip1193Provider)
-            : null,
-          address
-        );
+        const [pos, acct] = await Promise.all([
+          fetchOpenPositions(eip ?? null, address),
+          readLenderAccount(eip, address),
+        ]);
         setPositions(pos);
+        setLender({
+          shares: acct.shares,
+          totalShares: acct.totalShares,
+          estimatedEthOut: acct.estimatedEthOut,
+          freeEth: acct.freeEth,
+        });
+      } else {
+        setLender(null);
       }
     } catch {
       /* soft */
@@ -107,6 +123,50 @@ export default function LeveragePage() {
     setSheetOpen(true);
   }
 
+  function askWithdraw(all = false) {
+    if (!isConnected || !walletProvider) {
+      open();
+      return;
+    }
+    const shares = all ? lender?.shares || "0" : withdrawShares.trim();
+    if (!shares || BigInt(shares) <= 0n) {
+      setSheetStatus("error");
+      setSheetMsg("Enter shares to withdraw.");
+      setSheetDetails({
+        title: "Withdraw lender ETH",
+        mode: "Vault",
+        action: "Burn vault shares for ETH.",
+        vaultLabel: shortAddr(vault),
+      });
+      setSheetOpen(true);
+      return;
+    }
+    setPending("withdraw");
+    setWithdrawShares(shares);
+    const est =
+      lender && lender.shares !== "0"
+        ? (
+            (Number(lender.estimatedEthOut) * Number(shares)) /
+            Number(lender.shares)
+          ).toPrecision(6)
+        : "—";
+    setSheetDetails({
+      title: all ? "Withdraw all shares" : "Withdraw lender ETH",
+      mode: "Vault",
+      action: "Burn vault shares and receive ETH from free liquidity.",
+      amountLabel: `${shares} shares`,
+      receiveLabel: est !== "—" ? `~${est} ETH` : undefined,
+      vaultLabel: shortAddr(vault),
+      footnotes: [
+        "Only free vault ETH can be withdrawn.",
+        "Confirm here, then approve in your wallet.",
+      ],
+    });
+    setSheetStatus("review");
+    setSheetMsg(undefined);
+    setSheetOpen(true);
+  }
+
   function askClose(id: number) {
     if (!isConnected || !walletProvider) {
       open();
@@ -128,15 +188,22 @@ export default function LeveragePage() {
 
   async function execute() {
     if (!walletProvider || !pending) return;
-    const eip = walletProvider as unknown as import("ethers").Eip1193Provider;
+    const provider =
+      walletProvider as unknown as import("ethers").Eip1193Provider;
     setSheetStatus("waiting_wallet");
     try {
       if (pending === "deposit") {
         setSheetStatus("pending");
-        await depositLender({ eip1193: eip, ethAmount: depositAmt });
+        await depositLender({ eip1193: provider, ethAmount: depositAmt });
+      } else if (pending === "withdraw") {
+        setSheetStatus("pending");
+        await withdrawLender({
+          eip1193: provider,
+          shares: withdrawShares.trim(),
+        });
       } else if (pending === "close" && closeId != null) {
         setSheetStatus("pending");
-        await closeLong({ eip1193: eip, positionId: closeId });
+        await closeLong({ eip1193: provider, positionId: closeId });
       }
       setSheetStatus("confirmed");
       refresh();
@@ -217,6 +284,58 @@ export default function LeveragePage() {
         <button type="button" className="king-btn-primary" onClick={askDeposit}>
           {isConnected ? "Deposit to vault" : "Connect Wallet"}
         </button>
+      </div>
+
+      <div className="kf-panel space-y-3 p-5">
+        <h2 className="font-bold text-[var(--accent)]">Withdraw lender ETH</h2>
+        {isConnected && lender ? (
+          <div className="grid grid-cols-2 gap-2 rounded-lg border border-[var(--cut)] bg-black/30 p-3 text-xs sm:grid-cols-3">
+            <div>
+              <div className="text-[var(--muted)]">Your shares</div>
+              <div className="font-mono break-all">{lender.shares}</div>
+            </div>
+            <div>
+              <div className="text-[var(--muted)]">Est. ETH out</div>
+              <div className="font-mono">
+                {Number(lender.estimatedEthOut).toPrecision(6)}
+              </div>
+            </div>
+            <div>
+              <div className="text-[var(--muted)]">Vault free</div>
+              <div className="font-mono">
+                {Number(lender.freeEth).toPrecision(4)}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="text-xs text-[var(--muted)]">
+            Connect wallet to see your shares and withdraw.
+          </p>
+        )}
+        <label className="king-label">Shares to withdraw</label>
+        <input
+          className="king-input font-mono"
+          value={withdrawShares}
+          onChange={(e) => setWithdrawShares(e.target.value.trim())}
+          placeholder={lender?.shares || "0"}
+          inputMode="numeric"
+        />
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="king-btn-ghost"
+            onClick={() => askWithdraw(true)}
+          >
+            Withdraw all
+          </button>
+          <button
+            type="button"
+            className="king-btn-primary"
+            onClick={() => askWithdraw(false)}
+          >
+            {isConnected ? "Withdraw" : "Connect Wallet"}
+          </button>
+        </div>
       </div>
 
       {positions.length > 0 && (
