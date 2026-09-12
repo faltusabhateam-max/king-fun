@@ -1,0 +1,22 @@
+{
+  "name": "king.fun",
+  "short_name": "king.fun",
+  "description": "Solana meme launchpad",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000f0a",
+  "theme_color": "#000f0a",
+  "icons": [
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "any",
+      "type": "image/png"
+    }
+  ]
+}
