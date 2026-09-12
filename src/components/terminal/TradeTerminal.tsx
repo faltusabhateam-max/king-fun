@@ -277,7 +277,7 @@ export function TradeTerminal({ initialCa = "" }: { initialCa?: string }) {
             }`}
             onClick={() => setSide("buy")}
           >
-            Buy
+            Buy with ETH
           </button>
           <button
             type="button"
@@ -288,13 +288,13 @@ export function TradeTerminal({ initialCa = "" }: { initialCa?: string }) {
             }`}
             onClick={() => setSide("sell")}
           >
-            Sell
+            Sell for ETH
           </button>
         </div>
 
         <div>
           <label className="king-label">
-            {side === "buy" ? "Spend ETH" : `Sell ${market?.symbol || "TOKEN"}`}
+            {side === "buy" ? "Buy with ETH (amount)" : `Sell ${market?.symbol || "TOKEN"} for ETH`}
           </label>
           <input
             className="king-input"
