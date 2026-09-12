@@ -1,8 +1,9 @@
 "use client";
 
 import { createAppKit } from "@reown/appkit/react";
-import { SolanaAdapter } from "@reown/appkit-adapter-solana/react";
-import { solana, solanaDevnet } from "@reown/appkit/networks";
+import { EthersAdapter } from "@reown/appkit-adapter-ethers";
+import { robinhoodChain } from "@/lib/robinhood-network";
+import type { AppKitNetwork } from "@reown/appkit/networks";
 import type { ReactNode } from "react";
 
 const projectId =
@@ -12,7 +13,8 @@ const projectId =
 
 const metadata = {
   name: "king.fun",
-  description: "KING.FUN — Solana meme launchpad. Launch, trade, earn creator fees.",
+  description:
+    "KING.FUN — NFT launchpad on Robinhood Chain. Launch collections, mint, earn creator + platform fees.",
   url:
     typeof window !== "undefined"
       ? window.location.origin
@@ -20,13 +22,15 @@ const metadata = {
   icons: ["/logo.png"],
 };
 
-const solanaAdapter = new SolanaAdapter();
+const networks: [AppKitNetwork, ...AppKitNetwork[]] = [robinhoodChain];
+
+const ethersAdapter = new EthersAdapter();
 
 if (projectId) {
   createAppKit({
-    adapters: [solanaAdapter],
-    networks: [solana, solanaDevnet],
-    defaultNetwork: solana,
+    adapters: [ethersAdapter],
+    networks,
+    defaultNetwork: robinhoodChain,
     metadata,
     projectId,
     themeMode: "dark",

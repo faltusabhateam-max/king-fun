@@ -1,55 +1,73 @@
-# king.fun — Solana Meme Launchpad
+# king.fun — NFT Launchpad on Robinhood Chain
 
-**KING.FUN Launchpad** is a premium Solana meme launchpad with deep-space emerald + chrome branding. Launch tokens, explore DexScreener memes, trade via Jupiter or King Curve, and track creator fees.
+**KING.FUN Launchpad** is a premium NFT launchpad with deep-space emerald branding, running on **Robinhood Chain Mainnet** (Chain ID **4663**).
 
-> Not affiliated with DipCatcher or any trading-bot brand.
+> Not affiliated with Robinhood Markets, Inc. beyond using the public Robinhood Chain network.
+
+## Network
+
+| Field | Value |
+|---|---|
+| Name | Robinhood Chain Mainnet |
+| Chain ID | **4663** (`0x1237`) |
+| RPC | `https://rpc.mainnet.chain.robinhood.com` |
+| Explorer | `https://robinhoodchain.blockscout.com` |
+| Currency | ETH |
+
+## Platform earnings (on-chain)
+
+Fees are **pushed** to the treasury on each transaction (no custody):
+
+1. **createFee** — paid when a creator calls `factory.createCollection`; **100%** sent to `platformTreasury`.
+2. **platformFeeBps** — on every `collection.mint`, that % of mint payment goes to `platformTreasury`; remainder goes to the **creator**.
+3. Factory tracks `totalCreateFeesEth`, `totalPlatformFeesEth`, `totalVolumeEth`. Each collection tracks its own volume / fees.
+4. Owner can `setCreateFee`, `setDefaultPlatformFeeBps`, `setPlatformTreasury`, `withdrawStuckETH` (rescue only).
+
+Default UI suggestions: `createFee = 0.0001 ETH`, `defaultPlatformFeeBps = 250` (2.5%).
+
+## How to deploy the factory (user signs — no private keys)
+
+1. Fund your wallet with a little **ETH on Robinhood Chain** (~**$5** is plenty; gas is cheap).
+2. Open **`/deploy`**, connect wallet (Reown / WalletConnect).
+3. Confirm you are on chain **4663** (the page calls `wallet_switchEthereumChain` / `wallet_addEthereumChain`).
+4. Set **platform treasury** (defaults to your address), **createFee**, and **platformFeeBps**.
+5. Review the gas estimate, then click **Deploy Factory** and **confirm in your wallet**.
+6. On success the address is saved to `data/deployments.json` and `public/deployments/robinhood.json`, with an explorer link shown.
+7. Optionally paste an existing factory in **Settings**.
+
+**king.fun never collects seed phrases or private keys.**
 
 ## Features
 
-- **WalletConnect / Reown AppKit** (Solana) — connect Phantom, Solflare, and WalletConnect wallets
-- **Launch** — form + **real SPL mint** creation signed by the user’s wallet (`@solana/web3.js` + `@solana/spl-token`)
-- **King Curve** — constant-product bonding-curve math + IDL placeholder; local curve state until the on-chain program is deployed
-- **Explore** — DexScreener Solana boosted/meme pairs + local launches
-- **Token page** — lightweight-charts + GeckoTerminal/DexScreener OHLCV, Buy/Sell (Jupiter or curve), trade feed, creator fee
-- **Portfolio** — live SOL + SPL balances from public RPC (shows 0 if empty)
-- **Creator fees** — fee % + estimated earnings from stored trades
-- Animated starfield, floating glass nav, Framer Motion transitions
+- **Deploy** — wallet-signed Hardhat artifact deploy of `KingNFTFactory`
+- **Launch** — `createCollection` (user signs) → new `KingNFTCollection` owned by creator
+- **Explore / Collection** — mint UI, supply, price, activity
+- **Portfolio** — ERC721 `balanceOf` / `tokenOfOwnerByIndex` via public RH RPC
+- **Fees** — treasury, createFee, bps, on-chain volume/fee stats + creator earnings
+- Emerald space theme, floating nav, logo + og-banner
 
-## What’s real on day one
+## Contracts
 
-| Capability | Status |
-|---|---|
-| Wallet connect (Reown AppKit) | ✅ Real |
-| SPL token mint (wallet-signed) | ✅ Real on-chain |
-| DexScreener explore / logos / liquidity | ✅ Real API |
-| Jupiter quote + swap (listed tokens) | ✅ Real API + wallet sign |
-| Portfolio balances | ✅ Real RPC |
-| Chart OHLCV (GeckoTerminal / DexScreener pools) | ✅ Real when pool exists |
-| King Curve buy/sell settlement | ⚠️ Client math + local JSON state; **on-chain program not deployed yet** |
-| Metaplex metadata account | ⚠️ URI stored in launch record; full metadata ix can be added post-deploy |
+Solidity **0.8.20+**, OpenZeppelin 4.9, Hardhat:
 
-Deploying the **King Curve** Solana program requires **SOL** for rent and deploy fees. Until then, curve trades update local state under `data/` and may request a wallet message signature for intent.
+- `contracts/KingNFTCollection.sol` — ERC721Enumerable + Ownable + ReentrancyGuard + Pausable
+- `contracts/KingNFTFactory.sol` — deploys collections, indexes them, platform fee config
 
-**king.fun never collects seed phrases.**
-
-## Stack
-
-- Next.js App Router · TypeScript · Tailwind CSS v4
-- Framer Motion · lightweight-charts · lucide-react
-- Reown AppKit (`@reown/appkit` + `@reown/appkit-adapter-solana`)
-- `@solana/web3.js` · `@solana/spl-token`
+```bash
+npx hardhat compile
+# ABI + bytecode exported to src/lib/abi/KingNFTFactory.json & KingNFTCollection.json
+```
 
 ## Setup
 
 ```bash
 cd /workspace/king-fun
 cp .env.example .env.local
-# set NEXT_PUBLIC_PROJECT_ID / NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID from https://dashboard.reown.com
+# set NEXT_PUBLIC_PROJECT_ID from https://dashboard.reown.com
 npm install
+npm run compile   # optional: recompile contracts + export ABIs
 npm run dev
 ```
-
-Open [http://localhost:3000](http://localhost:3000).
 
 ### Environment
 
@@ -57,26 +75,32 @@ Open [http://localhost:3000](http://localhost:3000).
 |---|---|---|
 | `NEXT_PUBLIC_PROJECT_ID` | Yes | Reown / WalletConnect Cloud project ID |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | Yes | Same ID (alias) |
-| `NEXT_PUBLIC_SOLANA_RPC` | No | RPC URL (default mainnet-beta; use Helius for production) |
+| `NEXT_PUBLIC_ROBINHOOD_RPC` | No | Default public RH RPC |
 | `NEXT_PUBLIC_APP_URL` | No | Public site URL for metadata / WC verify |
+| `NEXT_PUBLIC_FACTORY_ADDRESS` | No | Optional pre-set factory |
 
 ## Scripts
 
 ```bash
-npm run dev      # development
-npm run build    # production build
-npm start        # serve build
+npm run compile  # hardhat compile + export ABIs
+npm run dev
+npm run build
+npm start
 ```
 
-## Deploy (Vercel)
+## Gas guidance
 
-- `vercel.json` included
-- Set the env vars in the Vercel project dashboard
-- Persist `data/launches.json` & `data/trades.json` with a volume, Blob store, or DB for multi-instance production (filesystem is fine for single-node / demo)
+- Factory deploy: typically low six-figure gas on RH Chain; cost is usually a small fraction of a cent–few cents depending on ETH price and gas.
+- Keep ~**$5 of ETH** on Robinhood Chain for deploy + several launches/mints.
+- Exact estimate is shown on `/deploy` from `estimateGas` × current fee data.
+
+## Deploy (Vercel)
 
 ```bash
 npx vercel --prod
 ```
+
+Set Reown env vars in the Vercel dashboard. Persist `data/*.json` (volume / Blob / DB) for multi-instance production.
 
 ## Brand
 

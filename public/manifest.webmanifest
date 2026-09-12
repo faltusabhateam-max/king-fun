@@ -1,7 +1,7 @@
 {
   "name": "king.fun",
   "short_name": "king.fun",
-  "description": "Solana meme launchpad",
+  "description": "NFT launchpad on Robinhood Chain",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000f0a",

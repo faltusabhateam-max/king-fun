@@ -1,148 +1,286 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAppKit, useAppKitAccount } from "@reown/appkit/react";
+import { useAppKitAccount } from "@reown/appkit/react";
+import { Contract, formatEther, JsonRpcProvider } from "ethers";
 import { PageTransition } from "@/components/PageTransition";
-import { formatSol, shortAddr } from "@/lib/format";
-import type { LaunchRecord, TradeRecord } from "@/lib/types";
-import { Coins } from "lucide-react";
+import {
+  ROBINHOOD_RPC,
+  explorerAddress,
+  DEFAULT_PLATFORM_FEE_BPS,
+} from "@/lib/robinhood";
+import FactoryArtifact from "@/lib/abi/KingNFTFactory.json";
+import CollectionArtifact from "@/lib/abi/KingNFTCollection.json";
+import type { CollectionRecord } from "@/lib/types";
+import { shortAddr } from "@/lib/format";
+import { Crown, ExternalLink } from "lucide-react";
+import Link from "next/link";
+
+interface FactoryStats {
+  platformTreasury: string;
+  createFee: bigint;
+  defaultPlatformFeeBps: bigint;
+  totalVolumeEth: bigint;
+  totalPlatformFeesEth: bigint;
+  totalCreateFeesEth: bigint;
+  collectionsCount: bigint;
+}
 
 export default function FeesPage() {
-  const { open } = useAppKit();
-  const { address, isConnected } = useAppKitAccount();
-  const [launches, setLaunches] = useState<LaunchRecord[]>([]);
-  const [trades, setTrades] = useState<TradeRecord[]>([]);
-  const [total, setTotal] = useState(0);
+  const { address } = useAppKitAccount();
+  const [factoryAddress, setFactoryAddress] = useState("");
+  const [stats, setStats] = useState<FactoryStats | null>(null);
+  const [creatorCols, setCreatorCols] = useState<
+    { col: CollectionRecord; volume: string; fees: string; creatorProceeds: string }[]
+  >([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!address) return;
     (async () => {
-      const [lRes, tRes] = await Promise.all([
-        fetch("/api/launches"),
-        fetch("/api/trades"),
-      ]);
-      const lData = await lRes.json();
-      const tData = await tRes.json();
-      const mine = (lData.launches || []).filter(
-        (l: LaunchRecord) =>
-          l.creator.toLowerCase() === address.toLowerCase()
-      ) as LaunchRecord[];
-      const mints = new Set(mine.map((m) => m.mint));
-      const myTrades = (tData.trades || []).filter((t: TradeRecord) =>
-        mints.has(t.mint)
-      ) as TradeRecord[];
-      setLaunches(mine);
-      setTrades(myTrades);
-      setTotal(myTrades.reduce((s, t) => s + (t.creatorFeeSol || 0), 0));
+      try {
+        const d = await fetch("/api/deployments").then((r) => r.json());
+        const fa = d?.deployments?.factoryAddress;
+        if (!fa) {
+          setError("No factory deployed yet.");
+          return;
+        }
+        setFactoryAddress(fa);
+        const provider = new JsonRpcProvider(ROBINHOOD_RPC);
+        const factory = new Contract(fa, FactoryArtifact.abi, provider);
+        const [
+          platformTreasury,
+          createFee,
+          defaultPlatformFeeBps,
+          totalVolumeEth,
+          totalPlatformFeesEth,
+          totalCreateFeesEth,
+          collectionsCount,
+        ] = await Promise.all([
+          factory.platformTreasury(),
+          factory.createFee(),
+          factory.defaultPlatformFeeBps(),
+          factory.totalVolumeEth(),
+          factory.totalPlatformFeesEth(),
+          factory.totalCreateFeesEth(),
+          factory.collectionsCount(),
+        ]);
+        setStats({
+          platformTreasury,
+          createFee,
+          defaultPlatformFeeBps,
+          totalVolumeEth,
+          totalPlatformFeesEth,
+          totalCreateFeesEth,
+          collectionsCount,
+        });
+      } catch (e) {
+        setError(
+          e instanceof Error
+            ? e.message
+            : "Could not read factory (RPC may be unreachable)"
+        );
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!address) {
+      setCreatorCols([]);
+      return;
+    }
+    (async () => {
+      try {
+        const data = await fetch("/api/collections").then((r) => r.json());
+        const mine: CollectionRecord[] = (data.collections || []).filter(
+          (c: CollectionRecord) =>
+            c.creator.toLowerCase() === address.toLowerCase()
+        );
+        const provider = new JsonRpcProvider(ROBINHOOD_RPC);
+        const rows = [];
+        for (const col of mine) {
+          try {
+            const c = new Contract(
+              col.address,
+              CollectionArtifact.abi,
+              provider
+            );
+            const [volume, fees, proceeds] = await Promise.all([
+              c.totalVolumeEth(),
+              c.totalPlatformFeesEth(),
+              c.totalCreatorProceedsEth(),
+            ]);
+            rows.push({
+              col,
+              volume: formatEther(volume),
+              fees: formatEther(fees),
+              creatorProceeds: formatEther(proceeds),
+            });
+          } catch {
+            rows.push({
+              col,
+              volume: "—",
+              fees: "—",
+              creatorProceeds: "—",
+            });
+          }
+        }
+        setCreatorCols(rows);
+      } catch {
+        /* ignore */
+      }
     })();
   }, [address]);
 
+  const bps = stats
+    ? Number(stats.defaultPlatformFeeBps)
+    : DEFAULT_PLATFORM_FEE_BPS;
+  const feePct = (bps / 100).toFixed(2);
+
   return (
     <PageTransition>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-[#e8eee9]">Creator Fees</h1>
-        <p className="mt-2 text-[#e8eee9]/55">
-          Fee % on your launches and estimated earnings from stored curve trades
-        </p>
+      <div className="mb-6 flex items-center gap-3">
+        <Crown className="text-[#00e88f]" size={26} />
+        <div>
+          <h1 className="text-2xl font-bold text-[#e8eee9]">Fees & earnings</h1>
+          <p className="text-sm text-[#e8eee9]/55">
+            Platform treasury earns createFee + {feePct}% of mint volume (push
+            model — paid on each tx)
+          </p>
+        </div>
       </div>
 
-      {!isConnected || !address ? (
-        <div className="king-panel flex flex-col items-center gap-4 p-12 text-center">
-          <Coins className="text-[#00e88f]" size={36} />
-          <p className="text-[#e8eee9]/70">Connect to view your creator fees</p>
-          <button type="button" className="king-btn-primary" onClick={() => open()}>
-            Connect Wallet
-          </button>
+      {!factoryAddress && (
+        <div className="king-panel mb-4 p-4 text-sm">
+          {error || "No factory yet."}{" "}
+          <Link href="/deploy" className="text-[#00e88f] underline">
+            Deploy Factory
+          </Link>
         </div>
-      ) : (
-        <>
-          <div className="king-panel mb-6 grid gap-4 p-5 sm:grid-cols-3">
-            <div>
-              <div className="text-xs uppercase text-[#e8eee9]/40">Creator</div>
-              <div className="mt-1 font-mono text-sm text-[#00e88f]">
-                {shortAddr(address, 6)}
-              </div>
-            </div>
-            <div>
-              <div className="text-xs uppercase text-[#e8eee9]/40">Launches</div>
-              <div className="mt-1 text-2xl font-bold">{launches.length}</div>
-            </div>
-            <div>
-              <div className="text-xs uppercase text-[#e8eee9]/40">
-                Est. fees earned
-              </div>
-              <div className="mt-1 text-2xl font-bold text-[#00e88f]">
-                {formatSol(total)}
-              </div>
-            </div>
+      )}
+
+      {stats && (
+        <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="king-panel p-4">
+            <p className="text-xs uppercase tracking-wide text-[#e8eee9]/45">
+              Platform treasury
+            </p>
+            <a
+              href={explorerAddress(stats.platformTreasury)}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-1 inline-flex items-center gap-1 font-mono text-sm text-[#00e88f]"
+            >
+              {shortAddr(stats.platformTreasury, 6)} <ExternalLink size={12} />
+            </a>
           </div>
+          <div className="king-panel p-4">
+            <p className="text-xs uppercase tracking-wide text-[#e8eee9]/45">
+              createFee
+            </p>
+            <p className="mt-1 text-lg font-semibold text-[#e8eee9]">
+              {formatEther(stats.createFee)} ETH
+            </p>
+          </div>
+          <div className="king-panel p-4">
+            <p className="text-xs uppercase tracking-wide text-[#e8eee9]/45">
+              Mint platform fee
+            </p>
+            <p className="mt-1 text-lg font-semibold text-[#00e88f]">
+              {feePct}%
+            </p>
+          </div>
+          <div className="king-panel p-4">
+            <p className="text-xs uppercase tracking-wide text-[#e8eee9]/45">
+              Collections
+            </p>
+            <p className="mt-1 text-lg font-semibold text-[#e8eee9]">
+              {stats.collectionsCount.toString()}
+            </p>
+          </div>
+          <div className="king-panel p-4">
+            <p className="text-xs uppercase tracking-wide text-[#e8eee9]/45">
+              Platform fees (create + reported)
+            </p>
+            <p className="mt-1 text-lg font-semibold text-[#00e88f]">
+              {formatEther(stats.totalPlatformFeesEth)} ETH
+            </p>
+          </div>
+          <div className="king-panel p-4">
+            <p className="text-xs uppercase tracking-wide text-[#e8eee9]/45">
+              Create fees collected
+            </p>
+            <p className="mt-1 text-lg font-semibold text-[#e8eee9]">
+              {formatEther(stats.totalCreateFeesEth)} ETH
+            </p>
+          </div>
+        </div>
+      )}
 
-          <h2 className="mb-3 text-lg font-semibold">Your launches</h2>
-          {launches.length === 0 ? (
-            <div className="king-panel p-8 text-center text-[#e8eee9]/50">
-              No launches yet — create one on the Launch page.
-            </div>
-          ) : (
-            <div className="mb-8 space-y-3">
-              {launches.map((l) => (
-                <div key={l.id} className="king-panel flex items-center gap-3 p-4">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={l.image || "/logo.png"}
-                    alt=""
-                    className="h-10 w-10 rounded-lg object-cover"
-                  />
-                  <div className="flex-1">
-                    <div className="font-medium">
-                      {l.name}{" "}
-                      <span className="text-[#e8eee9]/45">${l.symbol}</span>
-                    </div>
-                    <div className="text-xs text-[#e8eee9]/45">
-                      Fee {(l.creatorFeeBps / 100).toFixed(2)}% ·{" "}
-                      {l.onChainMint ? "On-chain mint" : "Recorded"}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+      <div className="king-panel mb-6 p-5 text-sm text-[#e8eee9]/65">
+        <h2 className="mb-2 font-semibold text-[#e8eee9]">How it works</h2>
+        <ul className="list-disc space-y-1 pl-5 text-[#e8eee9]/55">
+          <li>
+            <strong className="text-[#e8eee9]/80">Launch:</strong> creator pays
+            createFee → 100% pushed to platformTreasury.
+          </li>
+          <li>
+            <strong className="text-[#e8eee9]/80">Mint:</strong> buyer pays
+            mintPrice × qty → platformFeeBps to treasury, remainder to creator
+            (both pushed in the same tx). Emits MintWithFees.
+          </li>
+          <li>
+            Creators do not need a withdraw — proceeds arrive in their wallet
+            automatically. Platform owner can setCreateFee /
+            setDefaultPlatformFeeBps / setPlatformTreasury on the factory.
+          </li>
+          <li>
+            king.fun never holds custody of mint funds and never asks for seed
+            phrases.
+          </li>
+        </ul>
+      </div>
 
-          <h2 className="mb-3 text-lg font-semibold">Recent fee events</h2>
-          {trades.length === 0 ? (
-            <div className="king-panel p-8 text-center text-[#e8eee9]/50">
-              No trades on your curves yet.
-            </div>
-          ) : (
-            <div className="overflow-x-auto king-panel">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-emerald-400/15 text-[#e8eee9]/45">
-                  <tr>
-                    <th className="p-3">Side</th>
-                    <th className="p-3">Mint</th>
-                    <th className="p-3">Fee</th>
-                    <th className="p-3">Time</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {trades.slice(0, 40).map((t) => (
-                    <tr key={t.id} className="border-b border-emerald-400/5">
-                      <td className="p-3 capitalize">{t.side}</td>
-                      <td className="p-3 font-mono text-xs">
-                        {shortAddr(t.mint)}
-                      </td>
-                      <td className="p-3 text-[#00e88f]">
-                        {formatSol(t.creatorFeeSol)}
-                      </td>
-                      <td className="p-3 text-[#e8eee9]/45">
-                        {new Date(t.timestamp).toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </>
+      <h2 className="mb-3 text-lg font-semibold text-[#e8eee9]">
+        Your creator collections
+      </h2>
+      {!address ? (
+        <p className="text-sm text-[#e8eee9]/45">
+          Connect wallet to see your creator earnings.
+        </p>
+      ) : creatorCols.length === 0 ? (
+        <p className="text-sm text-[#e8eee9]/45">
+          No collections created from this wallet yet.{" "}
+          <Link href="/launch" className="text-[#00e88f]">
+            Launch one
+          </Link>
+          .
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {creatorCols.map((r) => (
+            <Link
+              key={r.col.address}
+              href={`/collection/${r.col.address}`}
+              className="king-panel block p-4 hover:border-emerald-400/40"
+            >
+              <div className="flex justify-between gap-2">
+                <span className="font-semibold text-[#e8eee9]">
+                  {r.col.name}
+                </span>
+                <span className="text-sm text-[#00e88f]">
+                  {r.creatorProceeds} ETH earned
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-[#e8eee9]/45">
+                Volume {r.volume} ETH · platform fees {r.fees} ETH
+              </p>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {error && factoryAddress && (
+        <p className="mt-4 text-xs text-amber-200/80">{error}</p>
       )}
     </PageTransition>
   );

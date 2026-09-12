@@ -20,27 +20,27 @@ const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://king.fun";
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "king.fun — Solana Meme Launchpad",
+    default: "king.fun — NFT Launchpad on Robinhood Chain",
     template: "%s | king.fun",
   },
   description:
-    "KING.FUN Launchpad — launch Solana memes, trade on King Curve + Jupiter, earn creator fees. Deep space emerald.",
+    "KING.FUN Launchpad — launch NFT collections on Robinhood Chain, mint with ETH, earn creator + platform fees. Deep space emerald.",
   applicationName: "king.fun",
   keywords: [
     "king.fun",
-    "Solana",
-    "meme launchpad",
-    "bonding curve",
-    "Jupiter",
+    "Robinhood Chain",
+    "NFT launchpad",
+    "ERC721",
+    "mint",
     "WalletConnect",
   ],
   authors: [{ name: "king.fun" }],
   openGraph: {
     type: "website",
     url: siteUrl,
-    title: "king.fun — Solana Meme Launchpad",
+    title: "king.fun — NFT Launchpad on Robinhood Chain",
     description:
-      "Launch memes. Trade the curve. Earn creator fees. Premium Solana launchpad.",
+      "Launch NFT collections. Mint on Robinhood Chain. Earn creator fees. Premium emerald space launchpad.",
     siteName: "king.fun",
     images: [
       {
@@ -53,9 +53,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "king.fun — Solana Meme Launchpad",
+    title: "king.fun — NFT Launchpad on Robinhood Chain",
     description:
-      "Launch memes. Trade the curve. Earn creator fees. Premium Solana launchpad.",
+      "Launch NFT collections. Mint on Robinhood Chain. Earn creator fees.",
     images: ["/og-banner.png"],
   },
   icons: {

@@ -14,6 +14,8 @@ const LINKS = [
   { href: "/explore", label: "Explore" },
   { href: "/portfolio", label: "Portfolio" },
   { href: "/fees", label: "Fees" },
+  { href: "/deploy", label: "Deploy" },
+  { href: "/settings", label: "Settings" },
 ];
 
 export function FloatingNav() {
@@ -40,14 +42,16 @@ export function FloatingNav() {
           </motion.div>
         </Link>
 
-        <div className="hidden flex-1 items-center justify-center gap-1 md:flex">
+        <div className="hidden flex-1 items-center justify-center gap-0.5 lg:flex">
           {LINKS.map((l) => {
-            const active = pathname === l.href;
+            const active =
+              pathname === l.href ||
+              (l.href !== "/" && pathname.startsWith(l.href));
             return (
               <Link
                 key={l.href}
                 href={l.href}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                className={`rounded-full px-2.5 py-1.5 text-xs font-medium transition xl:px-3 xl:text-sm ${
                   active
                     ? "bg-emerald-400/15 text-[#00e88f] shadow-[0_0_12px_rgba(0,232,143,0.25)]"
                     : "text-[#e8eee9]/80 hover:bg-white/5 hover:text-[#00e88f]"
@@ -65,7 +69,7 @@ export function FloatingNav() {
           </div>
           <button
             type="button"
-            className="rounded-full border border-emerald-400/20 p-2 text-[#e8eee9] md:hidden"
+            className="rounded-full border border-emerald-400/20 p-2 text-[#e8eee9] lg:hidden"
             onClick={() => setOpen((v) => !v)}
             aria-label="Menu"
           >
@@ -77,7 +81,7 @@ export function FloatingNav() {
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="absolute left-0 right-0 top-full mt-2 overflow-hidden rounded-2xl border border-emerald-400/20 bg-[#0a1f16]/95 p-3 shadow-xl backdrop-blur-xl md:hidden"
+            className="absolute left-0 right-0 top-full mt-2 overflow-hidden rounded-2xl border border-emerald-400/20 bg-[#0a1f16]/95 p-3 shadow-xl backdrop-blur-xl lg:hidden"
           >
             {LINKS.map((l) => (
               <Link

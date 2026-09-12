@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Rocket, Compass, Sparkles, Crown } from "lucide-react";
+import { Rocket, Compass, Sparkles, Crown, Factory } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 
 export default function HomePage() {
@@ -29,27 +29,31 @@ export default function HomePage() {
         </motion.div>
 
         <p className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#00e88f]">
-          <Crown size={14} /> KING.FUN Launchpad
+          <Crown size={14} /> KING.FUN · Robinhood Chain
         </p>
 
         <h1 className="max-w-3xl text-4xl font-bold tracking-tight text-[#e8eee9] sm:text-6xl">
-          Launch memes into{" "}
+          NFT launchpad in{" "}
           <span className="bg-gradient-to-r from-[#00e88f] to-[#7dffc8] bg-clip-text text-transparent">
             emerald space
           </span>
         </h1>
 
         <p className="mt-5 max-w-xl text-base text-[#e8eee9]/60 sm:text-lg">
-          Solana meme launchpad with wallet-signed mints, King Curve trading,
-          Jupiter swaps, and creator fees — no seed phrases, ever.
+          Launch ERC-721 collections on Robinhood Chain (4663). Creators earn
+          mint proceeds; platform earns create fees + a cut of mint volume —
+          all via wallet signatures. No private keys. Ever.
         </p>
 
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link href="/launch" className="king-btn-primary px-6 py-3 text-base">
-            <Rocket size={18} /> Launch
+            <Rocket size={18} /> Launch NFT
           </Link>
           <Link href="/explore" className="king-btn-ghost px-6 py-3 text-base">
             <Compass size={18} /> Explore
+          </Link>
+          <Link href="/deploy" className="king-btn-ghost px-6 py-3 text-base">
+            <Factory size={18} /> Deploy Factory
           </Link>
         </div>
 
@@ -57,18 +61,18 @@ export default function HomePage() {
           {[
             {
               icon: Sparkles,
-              title: "Real mint flow",
-              body: "Create SPL tokens with your wallet signature on Solana mainnet.",
+              title: "Wallet-signed deploys",
+              body: "Deploy the factory and create collections with your connected wallet on Robinhood Chain.",
             },
             {
               icon: Rocket,
-              title: "King Curve",
-              body: "Bonding-curve math ready today; on-chain program deploy needs SOL.",
+              title: "Fair fee split",
+              body: "Mint payments push platform % to treasury and the rest to the creator — no custody.",
             },
             {
               icon: Crown,
-              title: "Creator fees",
-              body: "Set your fee % and track estimated earnings from curve trades.",
+              title: "Platform earnings",
+              body: "You earn createFee on every launch + platformFeeBps of all mint volume.",
             },
           ].map((f, i) => (
             <motion.div
@@ -84,6 +88,12 @@ export default function HomePage() {
             </motion.div>
           ))}
         </div>
+
+        <p className="mt-10 max-w-lg text-xs text-[#e8eee9]/40">
+          Risk: smart contracts and NFTs can lose value. Only use funds you can
+          afford to lose. Always verify contract addresses on the explorer.
+          king.fun never asks for seed phrases.
+        </p>
       </section>
     </PageTransition>
   );

@@ -1,3 +1,45 @@
+export interface CollectionRecord {
+  id: string;
+  address: string;
+  name: string;
+  symbol: string;
+  description: string;
+  image: string;
+  creator: string;
+  maxSupply: number;
+  mintPriceWei: string;
+  mintPriceEth: string;
+  baseURI: string;
+  platformFeeBps: number;
+  createdAt: number;
+  txHash?: string;
+  factoryAddress?: string;
+}
+
+export interface DeploymentsState {
+  factoryAddress: string;
+  deployedAt?: number;
+  deployer?: string;
+  createFeeWei?: string;
+  platformFeeBps?: number;
+  platformTreasury?: string;
+  chainId: number;
+  txHash?: string;
+}
+
+export interface MintActivity {
+  id: string;
+  collection: string;
+  minter: string;
+  quantity: number;
+  totalPaid: string;
+  platformFee: string;
+  creatorProceeds: string;
+  txHash?: string;
+  timestamp: number;
+}
+
+/** Legacy Solana types (demoted; kept for leftover libs) */
 export type LaunchStatus = "curve" | "graduated" | "listed";
 
 export interface LaunchRecord {
@@ -13,7 +55,6 @@ export interface LaunchRecord {
   status: LaunchStatus;
   decimals: number;
   supply: number;
-  /** King Curve virtual reserves (SOL lamports + tokens) */
   virtualSolReserves: number;
   virtualTokenReserves: number;
   realSolReserves: number;
