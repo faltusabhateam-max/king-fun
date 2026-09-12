@@ -8,8 +8,11 @@ import { PageTransition } from "@/components/PageTransition";
 import { ensureRobinhoodChain, getBrowserProvider } from "@/lib/wallet-evm";
 import { explorerAddress } from "@/lib/robinhood";
 import FactoryArtifact from "@/lib/abi/KingNFTFactory.json";
-import { Rocket, Upload } from "lucide-react";
-import Link from "next/link";
+import { Rocket, Upload, X } from "lucide-react";
+
+const STOCK_OPTIONS = ["", "NVDA", "GOOGL", "AAPL"] as const;
+const MAX_PFP_BYTES = 900_000;
+const MAX_PFPS = 24;
 
 export default function LaunchPage() {
   const router = useRouter();
@@ -24,7 +27,8 @@ export default function LaunchPage() {
   const [maxSupply, setMaxSupply] = useState(1000);
   const [mintPriceEth, setMintPriceEth] = useState("0.01");
   const [baseURI, setBaseURI] = useState("ipfs://");
-  const [image, setImage] = useState("/logo.png");
+  const [pfps, setPfps] = useState<string[]>([]);
+  const [stockPair, setStockPair] = useState<string>("");
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -36,7 +40,6 @@ export default function LaunchPage() {
         if (fa) {
           setFactoryAddress(fa);
           setCreateFeeWei(d.deployments.createFeeWei || "0");
-          // refresh live createFee from chain if possible
           try {
             const provider = await getBrowserProvider();
             if (provider && fa) {
@@ -45,22 +48,39 @@ export default function LaunchPage() {
               setCreateFeeWei(fee.toString());
             }
           } catch {
-            /* offline / wrong chain */
+            /* offline */
           }
         }
       })
       .catch(() => {});
   }, []);
 
-  async function onImage(file: File | null) {
-    if (!file) return;
-    if (file.size > 1_500_000) {
-      setStatus("Image too large (max ~1.5MB).");
-      return;
+  async function onPfps(files: FileList | null) {
+    if (!files?.length) return;
+    const next = [...pfps];
+    for (const file of Array.from(files)) {
+      if (next.length >= MAX_PFPS) {
+        setStatus(`Max ${MAX_PFPS} PFPs per collection.`);
+        break;
+      }
+      if (!file.type.startsWith("image/")) continue;
+      if (file.size > MAX_PFP_BYTES) {
+        setStatus(`${file.name} too large (max ~0.9MB each).`);
+        continue;
+      }
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = () => reject(new Error("read failed"));
+        reader.readAsDataURL(file);
+      });
+      next.push(dataUrl);
     }
-    const reader = new FileReader();
-    reader.onload = () => setImage(String(reader.result || ""));
-    reader.readAsDataURL(file);
+    setPfps(next);
+  }
+
+  function removePfp(i: number) {
+    setPfps((p) => p.filter((_, idx) => idx !== i));
   }
 
   async function handleLaunch(e: React.FormEvent) {
@@ -70,11 +90,19 @@ export default function LaunchPage() {
       return;
     }
     if (!factoryAddress) {
-      setStatus("No factory deployed. Go to /deploy first.");
+      setStatus("Factory not ready yet. Try again shortly.");
       return;
     }
     if (!name.trim() || !symbol.trim()) {
-      setStatus("Name and symbol are required.");
+      setStatus("Name and symbol required.");
+      return;
+    }
+    if (pfps.length === 0) {
+      setStatus("Upload at least one PFP from your gallery.");
+      return;
+    }
+    if (maxSupply < 1) {
+      setStatus("Total supply must be at least 1.");
       return;
     }
 
@@ -85,11 +113,7 @@ export default function LaunchPage() {
       if (!provider) throw new Error("No wallet provider");
       await ensureRobinhoodChain(provider);
       const signer = await provider.getSigner();
-      const factory = new Contract(
-        factoryAddress,
-        FactoryArtifact.abi,
-        signer
-      );
+      const factory = new Contract(factoryAddress, FactoryArtifact.abi, signer);
 
       let fee = 0n;
       try {
@@ -106,7 +130,7 @@ export default function LaunchPage() {
         maxSupply,
         mintPriceWei,
         baseURI,
-        0, // creatorFeeBps reserved
+        0,
         { value: fee }
       );
       setStatus("Waiting for confirmation…");
@@ -125,19 +149,18 @@ export default function LaunchPage() {
             break;
           }
         } catch {
-          /* not our event */
+          /* skip */
         }
       }
-
       if (!collectionAddr) {
-        throw new Error("CollectionCreated event not found in receipt");
+        throw new Error("CollectionCreated event not found");
       }
 
       let platformFeeBps = 250;
       try {
         platformFeeBps = Number(await factory.defaultPlatformFeeBps());
       } catch {
-        /* use default */
+        /* default */
       }
 
       await fetch("/api/collections", {
@@ -148,7 +171,9 @@ export default function LaunchPage() {
           name: name.trim(),
           symbol: symbol.trim().toUpperCase(),
           description,
-          image,
+          image: pfps[0],
+          pfps,
+          stockPair: stockPair || undefined,
           creator: address,
           maxSupply,
           mintPriceWei: mintPriceWei.toString(),
@@ -172,52 +197,43 @@ export default function LaunchPage() {
   return (
     <PageTransition>
       <div className="mx-auto max-w-xl">
-        <h1 className="mb-2 text-2xl font-bold text-[#e8eee9] sm:text-3xl">
-          Launch NFT collection
-        </h1>
-        <p className="mb-6 text-sm text-[#e8eee9]/55">
-          Calls factory.createCollection — you sign on Robinhood Chain.
+        <h1 className="mb-2 text-2xl font-black sm:text-3xl">Launch collection</h1>
+        <p className="mb-6 text-sm text-[var(--muted)]">
+          One creator profile. Upload PFPs. Set total supply across the set.
           {createFeeWei !== "0" && (
             <>
               {" "}
               Create fee:{" "}
-              <span className="text-[#00e88f]">
+              <span className="font-bold text-[var(--accent)]">
                 {formatEther(BigInt(createFeeWei || "0"))} ETH
-              </span>{" "}
-              → platform treasury.
+              </span>
+              .
             </>
           )}
         </p>
 
         {!factoryAddress && (
-          <div className="king-panel mb-4 p-4 text-sm text-amber-100/80">
-            No factory address set.{" "}
-            <Link href="/deploy" className="text-[#00e88f] underline">
-              Deploy Factory
-            </Link>{" "}
-            or paste one in{" "}
-            <Link href="/settings" className="text-[#00e88f] underline">
-              Settings
-            </Link>
-            .
+          <div className="paper-panel mb-4 p-4 text-sm text-amber-100/80">
+            Factory address loading… If this stays empty, refresh in a minute.
           </div>
         )}
 
-        <form onSubmit={handleLaunch} className="king-panel space-y-4 p-5">
+        <form onSubmit={handleLaunch} className="paper-panel space-y-4 p-5">
           <label className="block text-sm">
-            <span className="text-[#e8eee9]/70">Name</span>
+            <span className="king-label">Name</span>
             <input
-              className="king-input mt-1 w-full"
+              className="king-input"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
               maxLength={64}
+              placeholder="Creator profile / collection"
             />
           </label>
           <label className="block text-sm">
-            <span className="text-[#e8eee9]/70">Symbol</span>
+            <span className="king-label">Symbol</span>
             <input
-              className="king-input mt-1 w-full"
+              className="king-input"
               value={symbol}
               onChange={(e) => setSymbol(e.target.value)}
               required
@@ -225,62 +241,102 @@ export default function LaunchPage() {
             />
           </label>
           <label className="block text-sm">
-            <span className="text-[#e8eee9]/70">Description</span>
+            <span className="king-label">Bio</span>
             <textarea
-              className="king-input mt-1 w-full"
+              className="king-input"
               rows={3}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              placeholder="Short English bio"
             />
           </label>
+
+          <div>
+            <span className="king-label">PFP gallery</span>
+            <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-[var(--cut)] bg-[var(--paper-deep)] p-5 text-sm text-[var(--muted)] hover:border-[var(--accent)]">
+              <Upload size={20} className="text-[var(--accent)]" />
+              <span className="font-bold text-[var(--ink)]">
+                Pick images from gallery
+              </span>
+              <span className="text-xs">Multi-select · max {MAX_PFPS} · ~0.9MB each</span>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => onPfps(e.target.files)}
+              />
+            </label>
+            {pfps.length > 0 && (
+              <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-6">
+                {pfps.map((src, i) => (
+                  <div key={i} className="relative aspect-square overflow-hidden rounded-lg border-2 border-[var(--cut)]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt={`PFP ${i + 1}`} className="h-full w-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removePfp(i)}
+                      className="absolute right-1 top-1 rounded bg-black/70 p-0.5 text-white"
+                      aria-label="Remove"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block text-sm">
-              <span className="text-[#e8eee9]/70">Max supply</span>
+              <span className="king-label">Total supply</span>
               <input
                 type="number"
-                className="king-input mt-1 w-full"
+                className="king-input"
                 value={maxSupply}
                 min={1}
                 max={100000}
                 onChange={(e) => setMaxSupply(Number(e.target.value))}
               />
+              <span className="mt-1 block text-[10px] text-[var(--muted)]">
+                Mints across all PFPs in this collection
+              </span>
             </label>
             <label className="block text-sm">
-              <span className="text-[#e8eee9]/70">Mint price (ETH)</span>
+              <span className="king-label">Mint price (ETH)</span>
               <input
-                className="king-input mt-1 w-full"
+                className="king-input"
                 value={mintPriceEth}
                 onChange={(e) => setMintPriceEth(e.target.value)}
               />
             </label>
           </div>
+
           <label className="block text-sm">
-            <span className="text-[#e8eee9]/70">Base URI</span>
+            <span className="king-label">Stock pair (optional)</span>
+            <select
+              className="king-input"
+              value={stockPair}
+              onChange={(e) => setStockPair(e.target.value)}
+            >
+              <option value="">None</option>
+              {STOCK_OPTIONS.filter(Boolean).map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block text-sm">
+            <span className="king-label">Base URI</span>
             <input
-              className="king-input mt-1 w-full font-mono text-xs"
+              className="king-input font-mono text-xs"
               value={baseURI}
               onChange={(e) => setBaseURI(e.target.value)}
               placeholder="ipfs://… or https://…"
             />
           </label>
-          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-emerald-400/30 p-4 text-sm text-[#e8eee9]/60">
-            <Upload size={18} className="text-[#00e88f]" />
-            <span>Cover image (optional, stored in metadata cache)</span>
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => onImage(e.target.files?.[0] || null)}
-            />
-          </label>
-          {image && image !== "/logo.png" && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={image}
-              alt="preview"
-              className="h-24 w-24 rounded-xl object-cover"
-            />
-          )}
 
           <button
             type="submit"
@@ -290,15 +346,15 @@ export default function LaunchPage() {
             <Rocket size={18} />
             {busy ? "Creating…" : isConnected ? "Create collection" : "Connect & create"}
           </button>
-          {status && <p className="text-sm text-[#e8eee9]/65">{status}</p>}
+          {status && <p className="text-sm text-[var(--muted)]">{status}</p>}
         </form>
 
         {factoryAddress && (
-          <p className="mt-3 text-xs text-[#e8eee9]/40">
+          <p className="mt-3 text-xs text-[var(--muted)]">
             Factory:{" "}
             <a
               href={explorerAddress(factoryAddress)}
-              className="text-[#00e88f]"
+              className="text-[var(--accent)]"
               target="_blank"
               rel="noreferrer"
             >

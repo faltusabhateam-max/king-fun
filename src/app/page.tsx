@@ -1,99 +1,99 @@
 "use client";
 
-import Image from "next/image";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Rocket, Compass, Sparkles, Crown, Factory } from "lucide-react";
+import { Rocket, Compass, Scissors } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
+import { CollectionCard } from "@/components/CollectionCard";
+import type { CollectionRecord } from "@/lib/types";
 
 export default function HomePage() {
+  const [collections, setCollections] = useState<CollectionRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/collections")
+      .then((r) => r.json())
+      .then((d) => setCollections(d.collections || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <PageTransition>
-      <section className="relative flex flex-col items-center text-center">
-        <motion.div
-          className="relative mb-8 h-36 w-36 sm:h-44 sm:w-44"
-          animate={{ y: [0, -10, 0] }}
-          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-        >
-          <div className="absolute inset-0 rounded-full bg-[#00e88f]/20 blur-3xl animate-pulse-glow" />
-          <div className="relative h-full w-full overflow-hidden rounded-full border border-emerald-400/40 shadow-[0_0_50px_rgba(0,232,143,0.35)]">
-            <Image
-              src="/logo.png"
-              alt="king.fun"
-              fill
-              className="object-cover"
-              priority
-              sizes="176px"
-            />
+      <section className="relative">
+        <div className="paper-panel paper-cut relative overflow-hidden p-6 sm:p-10">
+          <p className="mb-3 inline-flex items-center gap-2 rounded-full border-2 border-[var(--cut)] bg-[var(--accent-soft)] px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent)]">
+            <Scissors size={12} /> Robinhood Chain · PFP launchpad
+          </p>
+          <h1 className="max-w-2xl text-3xl font-black tracking-tight text-[var(--ink)] sm:text-5xl">
+            Cut your collection.{" "}
+            <span className="text-[var(--accent)]">Mint the drop.</span>
+          </h1>
+          <p className="mt-4 max-w-xl text-sm text-[var(--muted)] sm:text-base">
+            One creator profile. Many PFPs. Set total supply. Fees split on-chain —
+            wallet signatures only.
+          </p>
+          <div className="mt-7 flex flex-wrap gap-3">
+            <Link href="/launch" className="king-btn-primary px-5 py-3">
+              <Rocket size={16} /> Launch
+            </Link>
+            <Link href="/explore" className="king-btn-ghost px-5 py-3">
+              <Compass size={16} /> Explore
+            </Link>
+            <Link href="/about" className="king-btn-ghost px-5 py-3">
+              How it works
+            </Link>
           </div>
-        </motion.div>
+          <p className="mt-5 text-xs text-[var(--muted)]">
+            Waitlist: follow{" "}
+            <a
+              className="font-bold text-[var(--accent)]"
+              href="https://x.com/Crypto_King877"
+              target="_blank"
+              rel="noreferrer"
+            >
+              @Crypto_King877
+            </a>{" "}
+            for drops.
+          </p>
+        </div>
 
-        <p className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#00e88f]">
-          <Crown size={14} /> KING.FUN · Robinhood Chain
-        </p>
-
-        <h1 className="max-w-3xl text-4xl font-bold tracking-tight text-[#e8eee9] sm:text-6xl">
-          NFT launchpad in{" "}
-          <span className="bg-gradient-to-r from-[#00e88f] to-[#7dffc8] bg-clip-text text-transparent">
-            emerald space
-          </span>
-        </h1>
-
-        <p className="mt-5 max-w-xl text-base text-[#e8eee9]/60 sm:text-lg">
-          Launch ERC-721 collections on Robinhood Chain (4663). Creators earn
-          mint proceeds; platform earns create fees + a cut of mint volume —
-          all via wallet signatures. No private keys. Ever.
-        </p>
-
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Link href="/launch" className="king-btn-primary px-6 py-3 text-base">
-            <Rocket size={18} /> Launch NFT
-          </Link>
-          <Link href="/explore" className="king-btn-ghost px-6 py-3 text-base">
-            <Compass size={18} /> Explore
-          </Link>
-          <Link href="/deploy" className="king-btn-ghost px-6 py-3 text-base">
-            <Factory size={18} /> Deploy Factory
+        <div className="mt-10 flex items-end justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-black">Live launches</h2>
+            <p className="text-sm text-[var(--muted)]">Fresh collections on king.fun</p>
+          </div>
+          <Link href="/explore" className="text-sm font-bold text-[var(--accent)]">
+            See all →
           </Link>
         </div>
 
-        <div className="mt-16 grid w-full gap-4 sm:grid-cols-3">
-          {[
-            {
-              icon: Sparkles,
-              title: "Wallet-signed deploys",
-              body: "Deploy the factory and create collections with your connected wallet on Robinhood Chain.",
-            },
-            {
-              icon: Rocket,
-              title: "Fair fee split",
-              body: "Mint payments push platform % to treasury and the rest to the creator — no custody.",
-            },
-            {
-              icon: Crown,
-              title: "Platform earnings",
-              body: "You earn createFee on every launch + platformFeeBps of all mint volume.",
-            },
-          ].map((f, i) => (
+        {loading && (
+          <p className="mt-6 text-sm text-[var(--muted)]">Loading feed…</p>
+        )}
+        {!loading && collections.length === 0 && (
+          <div className="paper-panel mt-6 p-8 text-center text-sm text-[var(--muted)]">
+            No launches yet.{" "}
+            <Link href="/launch" className="font-bold text-[var(--accent)]">
+              Be first
+            </Link>
+            .
+          </div>
+        )}
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {collections.slice(0, 6).map((c, i) => (
             <motion.div
-              key={f.title}
-              initial={{ opacity: 0, y: 16 }}
+              key={c.address}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15 * i }}
-              className="king-panel king-glow-card p-5 text-left"
+              transition={{ delay: 0.05 * i }}
             >
-              <f.icon className="mb-3 text-[#00e88f]" size={22} />
-              <h3 className="font-semibold text-[#e8eee9]">{f.title}</h3>
-              <p className="mt-2 text-sm text-[#e8eee9]/55">{f.body}</p>
+              <CollectionCard c={c} />
             </motion.div>
           ))}
         </div>
-
-        <p className="mt-10 max-w-lg text-xs text-[#e8eee9]/40">
-          Risk: smart contracts and NFTs can lose value. Only use funds you can
-          afford to lose. Always verify contract addresses on the explorer.
-          king.fun never asks for seed phrases.
-        </p>
       </section>
     </PageTransition>
   );

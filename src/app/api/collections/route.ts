@@ -31,6 +31,8 @@ export async function POST(req: NextRequest) {
       symbol,
       description,
       image,
+      pfps,
+      stockPair,
       creator,
       maxSupply,
       mintPriceWei,
@@ -54,7 +56,11 @@ export async function POST(req: NextRequest) {
       name: String(name).slice(0, 64),
       symbol: String(symbol).toUpperCase().slice(0, 16),
       description: String(description || "").slice(0, 500),
-      image: String(image || "/logo.png"),
+      image: String(image || (Array.isArray(pfps) && pfps[0]) || "/logo.png"),
+      pfps: Array.isArray(pfps)
+        ? pfps.map((x: unknown) => String(x)).slice(0, 24)
+        : undefined,
+      stockPair: stockPair ? String(stockPair).slice(0, 16) : undefined,
       creator: String(creator),
       maxSupply: Number(maxSupply) || 0,
       mintPriceWei: String(mintPriceWei || "0"),

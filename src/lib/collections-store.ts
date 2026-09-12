@@ -14,6 +14,10 @@ const PUBLIC_DEPLOYMENTS = path.join(
   "robinhood.json"
 );
 
+/** In-memory fallback when filesystem is read-only (Vercel). */
+let memoryCollections: CollectionRecord[] | null = null;
+let memoryActivity: MintActivity[] | null = null;
+
 async function ensureDataDir() {
   await fs.mkdir(DATA_DIR, { recursive: true });
   await fs.mkdir(path.dirname(PUBLIC_DEPLOYMENTS), { recursive: true });
@@ -42,7 +46,15 @@ function isReadOnlyFsError(err: unknown): boolean {
 
 export async function getCollections(): Promise<CollectionRecord[]> {
   const list = await readJson<CollectionRecord[]>(COLLECTIONS_FILE, []);
-  return list.sort((a, b) => b.createdAt - a.createdAt);
+  const merged = memoryCollections
+    ? [...memoryCollections, ...list.filter(
+        (c) =>
+          !memoryCollections!.some(
+            (m) => m.address.toLowerCase() === c.address.toLowerCase()
+          )
+      )]
+    : list;
+  return merged.sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export async function getCollection(
@@ -63,7 +75,16 @@ export async function saveCollection(
   );
   if (idx >= 0) list[idx] = col;
   else list.unshift(col);
-  await writeJson(COLLECTIONS_FILE, list);
+  memoryCollections = list;
+  if (process.env.VERCEL) {
+    return col;
+  }
+  try {
+    await writeJson(COLLECTIONS_FILE, list);
+  } catch (err) {
+    if (isReadOnlyFsError(err)) return col;
+    throw err;
+  }
   return col;
 }
 
@@ -143,8 +164,16 @@ export async function getActivity(
 }
 
 export async function saveActivity(a: MintActivity): Promise<MintActivity> {
-  const list = await readJson<MintActivity[]>(ACTIVITY_FILE, []);
+  const disk = await readJson<MintActivity[]>(ACTIVITY_FILE, []);
+  const list = memoryActivity ? [...memoryActivity, ...disk] : disk;
   list.unshift(a);
-  await writeJson(ACTIVITY_FILE, list.slice(0, 5000));
+  memoryActivity = list.slice(0, 5000);
+  if (!process.env.VERCEL) {
+    try {
+      await writeJson(ACTIVITY_FILE, memoryActivity);
+    } catch (err) {
+      if (!isReadOnlyFsError(err)) throw err;
+    }
+  }
   return a;
 }

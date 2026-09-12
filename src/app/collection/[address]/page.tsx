@@ -162,8 +162,8 @@ export default function CollectionPage() {
     <PageTransition>
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div>
-          <div className="king-panel overflow-hidden">
-            <div className="aspect-square max-h-[420px] bg-[#001a10] sm:aspect-video">
+          <div className="paper-panel overflow-hidden">
+            <div className="aspect-square max-h-[420px] bg-[var(--paper-deep)] sm:aspect-video">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={meta?.image || "/logo.png"}
@@ -172,19 +172,37 @@ export default function CollectionPage() {
               />
             </div>
             <div className="p-5">
-              <h1 className="text-2xl font-bold text-[#e8eee9]">
+              <h1 className="text-2xl font-bold text-[var(--ink)]">
                 {title}{" "}
-                <span className="text-[#00e88f]">${symbol}</span>
+                <span className="text-[var(--accent)]">${symbol}</span>
               </h1>
-              <p className="mt-2 text-sm text-[#e8eee9]/55">
+              <p className="mt-2 text-sm text-[var(--muted)]">
                 {meta?.description || "NFT collection on Robinhood Chain"}
               </p>
-              <div className="mt-4 flex flex-wrap gap-3 text-xs text-[#e8eee9]/50">
+              {meta?.stockPair && (
+                <p className="mt-2 text-xs font-bold uppercase tracking-wide text-[var(--accent)]">
+                  Stock pair · {meta.stockPair}
+                </p>
+              )}
+              {meta?.pfps && meta.pfps.length > 0 && (
+                <div className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-6">
+                  {meta.pfps.map((src, i) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={i}
+                      src={src}
+                      alt={`PFP ${i + 1}`}
+                      className="aspect-square rounded-lg border-2 border-[var(--cut)] object-cover"
+                    />
+                  ))}
+                </div>
+              )}
+              <div className="mt-4 flex flex-wrap gap-3 text-xs text-[var(--muted)]">
                 <a
                   href={explorerAddress(address)}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-[#00e88f]"
+                  className="inline-flex items-center gap-1 text-[var(--accent)]"
                 >
                   {shortAddr(address, 6)} <ExternalLink size={12} />
                 </a>
@@ -202,10 +220,10 @@ export default function CollectionPage() {
             </div>
           </div>
 
-          <div className="king-panel mt-4 p-5">
-            <h2 className="mb-3 font-semibold text-[#e8eee9]">Activity</h2>
+          <div className="paper-panel mt-4 p-5">
+            <h2 className="mb-3 font-semibold text-[var(--ink)]">Activity</h2>
             {activity.length === 0 ? (
-              <p className="text-sm text-[#e8eee9]/45">
+              <p className="text-sm text-[var(--muted)]">
                 No mints in this session yet.
               </p>
             ) : (
@@ -213,7 +231,7 @@ export default function CollectionPage() {
                 {activity.map((a, i) => (
                   <li
                     key={i}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-black/20 px-3 py-2"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--paper-deep)] px-3 py-2"
                   >
                     <span>
                       {shortAddr(a.minter)} minted {a.qty} for {a.paid} ETH
@@ -223,7 +241,7 @@ export default function CollectionPage() {
                         href={explorerTx(a.tx)}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-[#00e88f]"
+                        className="text-[var(--accent)]"
                       >
                         tx
                       </a>
@@ -235,21 +253,21 @@ export default function CollectionPage() {
           </div>
         </div>
 
-        <div className="king-panel h-fit space-y-4 p-5">
-          <h2 className="font-semibold text-[#e8eee9]">Mint</h2>
+        <div className="paper-panel h-fit space-y-4 p-5">
+          <h2 className="font-semibold text-[var(--ink)]">Mint</h2>
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="rounded-xl bg-black/25 p-3">
-              <p className="text-xs text-[#e8eee9]/45">Minted</p>
-              <p className="text-lg font-semibold text-[#00e88f]">
+            <div className="rounded-xl bg-[var(--paper-deep)] p-3">
+              <p className="text-xs text-[var(--muted)]">Minted</p>
+              <p className="text-lg font-semibold text-[var(--accent)]">
                 {info ? info.totalMinted.toString() : "—"}
-                <span className="text-sm text-[#e8eee9]/40">
+                <span className="text-sm text-[var(--muted)]">
                   /{info ? info.maxSupply.toString() : meta?.maxSupply || "—"}
                 </span>
               </p>
             </div>
-            <div className="rounded-xl bg-black/25 p-3">
-              <p className="text-xs text-[#e8eee9]/45">Price</p>
-              <p className="text-lg font-semibold text-[#e8eee9]">
+            <div className="rounded-xl bg-[var(--paper-deep)] p-3">
+              <p className="text-xs text-[var(--muted)]">Price</p>
+              <p className="text-lg font-semibold text-[var(--ink)]">
                 {formatEther(mintPrice)} ETH
               </p>
             </div>
@@ -260,7 +278,7 @@ export default function CollectionPage() {
           )}
 
           <label className="block text-sm">
-            <span className="text-[#e8eee9]/70">Quantity (1–20)</span>
+            <span className="text-[var(--muted)]">Quantity (1–20)</span>
             <input
               type="number"
               min={1}
@@ -272,7 +290,7 @@ export default function CollectionPage() {
               }
             />
           </label>
-          <p className="text-xs text-[#e8eee9]/50">
+          <p className="text-xs text-[var(--muted)]">
             Total: {formatEther(totalCost)} ETH
             {info && (
               <>
@@ -294,10 +312,10 @@ export default function CollectionPage() {
           >
             {busy ? "Minting…" : isConnected ? "Mint" : "Connect & mint"}
           </button>
-          {status && <p className="text-xs text-[#e8eee9]/60">{status}</p>}
+          {status && <p className="text-xs text-[var(--muted)]">{status}</p>}
 
           {info && (
-            <div className="border-t border-emerald-400/10 pt-3 text-xs text-[#e8eee9]/45">
+            <div className="border-t border-[var(--cut)] pt-3 text-xs text-[var(--muted)]">
               <p>Volume: {formatEther(info.totalVolumeEth)} ETH</p>
               <p>
                 Platform fees paid:{" "}
@@ -306,7 +324,7 @@ export default function CollectionPage() {
             </div>
           )}
 
-          <Link href="/explore" className="block text-center text-xs text-[#00e88f]">
+          <Link href="/explore" className="block text-center text-xs text-[var(--accent)]">
             ← Back to explore
           </Link>
         </div>

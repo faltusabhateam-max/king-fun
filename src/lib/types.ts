@@ -14,6 +14,8 @@ export interface CollectionRecord {
   createdAt: number;
   txHash?: string;
   factoryAddress?: string;
+  pfps?: string[];
+  stockPair?: string;
 }
 
 export interface DeploymentsState {

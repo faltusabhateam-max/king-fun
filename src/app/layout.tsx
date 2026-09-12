@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
-import { FloatingNav } from "@/components/FloatingNav";
-import { Starfield } from "@/components/Starfield";
+import { SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteFooter";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,38 +24,30 @@ export const metadata: Metadata = {
     template: "%s | king.fun",
   },
   description:
-    "KING.FUN Launchpad — launch NFT collections on Robinhood Chain, mint with ETH, earn creator + platform fees. Deep space emerald.",
+    "Launch PFP NFT collections on Robinhood Chain. Wallet-sign only. Create fee to treasury; mint fees split with creators.",
   applicationName: "king.fun",
   keywords: [
     "king.fun",
     "Robinhood Chain",
     "NFT launchpad",
+    "PFP",
     "ERC721",
     "mint",
-    "WalletConnect",
   ],
   authors: [{ name: "king.fun" }],
   openGraph: {
     type: "website",
     url: siteUrl,
-    title: "king.fun — NFT Launchpad on Robinhood Chain",
+    title: "king.fun — NFT Launchpad",
     description:
-      "Launch NFT collections. Mint on Robinhood Chain. Earn creator fees. Premium emerald space launchpad.",
+      "Paper-cut NFT launchpad on Robinhood Chain. Launch PFPs. Mint with ETH.",
     siteName: "king.fun",
-    images: [
-      {
-        url: "/og-banner.png",
-        width: 1200,
-        height: 630,
-        alt: "king.fun",
-      },
-    ],
+    images: [{ url: "/og-banner.png", width: 1200, height: 630, alt: "king.fun" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "king.fun — NFT Launchpad on Robinhood Chain",
-    description:
-      "Launch NFT collections. Mint on Robinhood Chain. Earn creator fees.",
+    title: "king.fun — NFT Launchpad",
+    description: "Launch PFP collections on Robinhood Chain.",
     images: ["/og-banner.png"],
   },
   icons: {
@@ -67,7 +59,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#000f0a",
+  themeColor: "#1a1714",
   colorScheme: "dark",
   width: "device-width",
   initialScale: 1,
@@ -84,11 +76,13 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Providers>
-          <Starfield />
-          <FloatingNav />
-          <main className="relative mx-auto min-h-screen w-full max-w-6xl px-4 pb-16 pt-28 sm:px-6">
-            {children}
-          </main>
+          <div className="relative z-10 flex min-h-screen flex-col">
+            <SiteHeader />
+            <main className="relative mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
+              {children}
+            </main>
+            <SiteFooter />
+          </div>
         </Providers>
       </body>
     </html>
