@@ -2,136 +2,118 @@
 
 import { useEffect, useState } from "react";
 import { useAppKit, useAppKitAccount } from "@reown/appkit/react";
-import { Contract, JsonRpcProvider } from "ethers";
-import { PageTransition } from "@/components/PageTransition";
-import { ROBINHOOD_RPC } from "@/lib/robinhood";
-import CollectionArtifact from "@/lib/abi/KingNFTCollection.json";
-import type { CollectionRecord } from "@/lib/types";
-import { shortAddr } from "@/lib/format";
-import Link from "next/link";
-import { Wallet } from "lucide-react";
+import { BrowserProvider, Contract, formatEther, formatUnits } from "ethers";
+import { ERC20_ABI } from "@/lib/uniswap";
+import { WalletButton } from "@/components/WalletButton";
 
-interface Holding {
-  collection: CollectionRecord;
-  balance: number;
-  tokenIds: number[];
-}
+const WATCH_KEY = "kingfun_watchlist";
 
 export default function PortfolioPage() {
   const { open } = useAppKit();
   const { address, isConnected } = useAppKitAccount();
-  const [holdings, setHoldings] = useState<Holding[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [ethBal, setEthBal] = useState<string>("—");
+  const [rows, setRows] = useState<
+    { token: string; symbol: string; balance: string }[]
+  >([]);
+  const [ca, setCa] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+
+  async function refresh() {
+    if (!address || typeof window === "undefined") return;
+    setErr(null);
+    try {
+      const ethereum = (window as unknown as { ethereum?: import("ethers").Eip1193Provider }).ethereum;
+      if (!ethereum) {
+        setErr("No wallet provider");
+        return;
+      }
+      const provider = new BrowserProvider(ethereum);
+      const bal = await provider.getBalance(address);
+      setEthBal(formatEther(bal));
+      const watch: string[] = JSON.parse(localStorage.getItem(WATCH_KEY) || "[]");
+      const out: { token: string; symbol: string; balance: string }[] = [];
+      for (const token of watch) {
+        try {
+          const c = new Contract(token, ERC20_ABI, provider);
+          const [symbol, decimals, b] = await Promise.all([
+            c.symbol(),
+            c.decimals(),
+            c.balanceOf(address),
+          ]);
+          out.push({
+            token,
+            symbol: String(symbol),
+            balance: formatUnits(b, Number(decimals)),
+          });
+        } catch {
+          /* skip */
+        }
+      }
+      setRows(out);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Portfolio error");
+    }
+  }
 
   useEffect(() => {
-    if (!isConnected || !address) {
-      setHoldings([]);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch("/api/collections");
-        const data = await res.json();
-        const collections: CollectionRecord[] = data.collections || [];
-        const provider = new JsonRpcProvider(ROBINHOOD_RPC);
-        const next: Holding[] = [];
-        for (const col of collections) {
-          try {
-            const c = new Contract(
-              col.address,
-              CollectionArtifact.abi,
-              provider
-            );
-            const bal: bigint = await c.balanceOf(address);
-            if (bal === BigInt(0)) continue;
-            const tokenIds: number[] = [];
-            const n = Number(bal);
-            for (let i = 0; i < Math.min(n, 50); i++) {
-              const id: bigint = await c.tokenOfOwnerByIndex(address, i);
-              tokenIds.push(Number(id));
-            }
-            next.push({ collection: col, balance: n, tokenIds });
-          } catch {
-            /* skip broken */
-          }
-        }
-        if (!cancelled) setHoldings(next);
-      } catch (e) {
-        if (!cancelled)
-          setError(e instanceof Error ? e.message : "Failed to load");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [isConnected, address]);
+    refresh();
+  }, [address]);
+
+  function addWatch() {
+    if (!/^0x[a-fA-F0-9]{40}$/.test(ca)) return;
+    const watch: string[] = JSON.parse(localStorage.getItem(WATCH_KEY) || "[]");
+    const next = [...new Set([...watch, ca.toLowerCase()])];
+    localStorage.setItem(WATCH_KEY, JSON.stringify(next));
+    setCa("");
+    refresh();
+  }
 
   return (
-    <PageTransition>
-      <div className="mb-6 flex items-center gap-3">
-        <Wallet className="text-[#00e88f]" size={26} />
-        <div>
-          <h1 className="text-2xl font-bold text-[#e8eee9]">Portfolio</h1>
-          <p className="text-sm text-[#e8eee9]/55">
-            NFTs you own on Robinhood Chain (from known king.fun collections)
-          </p>
-        </div>
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-xl font-black">Portfolio</h1>
+        <p className="text-sm text-[var(--muted)]">
+          On-chain balances from your wallet (ETH + watched meme tokens).
+        </p>
       </div>
-
       {!isConnected ? (
-        <div className="king-panel p-8 text-center">
-          <p className="mb-4 text-sm text-[#e8eee9]/55">
-            Connect a wallet to view your NFTs.
-          </p>
-          <button type="button" className="king-btn-primary" onClick={() => open()}>
-            Connect Wallet
-          </button>
-        </div>
-      ) : loading ? (
-        <p className="text-sm text-[#e8eee9]/50">Scanning collections…</p>
-      ) : error ? (
-        <p className="text-sm text-amber-200">{error}</p>
-      ) : holdings.length === 0 ? (
-        <div className="king-panel p-8 text-center text-sm text-[#e8eee9]/55">
-          No NFTs found for {shortAddr(address || "")}.{" "}
-          <Link href="/explore" className="text-[#00e88f] underline">
-            Explore collections
-          </Link>
+        <div className="kf-panel p-6">
+          <p className="mb-3 text-sm text-[var(--muted)]">Connect to read balances.</p>
+          <WalletButton />
         </div>
       ) : (
-        <div className="space-y-4">
-          {holdings.map((h) => (
-            <Link
-              key={h.collection.address}
-              href={`/collection/${h.collection.address}`}
-              className="king-panel flex items-center gap-4 p-4 transition hover:border-emerald-400/40"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={h.collection.image || "/logo.png"}
-                alt=""
-                className="h-16 w-16 rounded-xl object-cover"
-              />
-              <div className="flex-1">
-                <h3 className="font-semibold text-[#e8eee9]">
-                  {h.collection.name}
-                </h3>
-                <p className="text-xs text-[#e8eee9]/50">
-                  Balance {h.balance} · tokens [
-                  {h.tokenIds.slice(0, 8).join(", ")}
-                  {h.tokenIds.length > 8 ? "…" : ""}]
-                </p>
-              </div>
-            </Link>
-          ))}
-        </div>
+        <>
+          <div className="kf-panel p-4">
+            <div className="text-xs text-[var(--muted)]">ETH balance</div>
+            <div className="font-mono text-2xl text-[var(--accent)]">
+              {Number(ethBal).toPrecision(8)} ETH
+            </div>
+            <button type="button" className="king-btn-ghost mt-3 text-xs" onClick={refresh}>
+              Refresh
+            </button>
+          </div>
+          <div className="kf-panel space-y-3 p-4">
+            <label className="king-label">Watch meme CA</label>
+            <div className="flex gap-2">
+              <input className="king-input font-mono text-sm" value={ca} onChange={(e) => setCa(e.target.value.trim())} placeholder="0x…" />
+              <button type="button" className="king-btn-primary" onClick={addWatch}>Add</button>
+            </div>
+            <ul className="space-y-2 text-sm">
+              {rows.map((r) => (
+                <li key={r.token} className="flex justify-between border-b border-[var(--cut)]/40 py-2">
+                  <span className="font-bold">{r.symbol}</span>
+                  <span className="font-mono">{Number(r.balance).toPrecision(6)}</span>
+                </li>
+              ))}
+              {rows.length === 0 && (
+                <li className="text-[var(--muted)]">No watched tokens yet.</li>
+              )}
+            </ul>
+          </div>
+        </>
       )}
-    </PageTransition>
+      {err && <p className="text-sm text-rose-300">{err}</p>}
+      <button type="button" className="hidden" onClick={() => open()} />
+    </div>
   );
 }

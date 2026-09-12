@@ -1,4 +1,4 @@
-/** Robinhood Chain Mainnet — primary network for king.fun NFT launchpad */
+/** Robinhood Chain Mainnet — KINGFUN MEME/ETH trading */
 export const ROBINHOOD_CHAIN_ID = 4663;
 export const ROBINHOOD_CHAIN_ID_HEX = "0x1237";
 
@@ -10,7 +10,6 @@ export const ROBINHOOD_EXPLORER =
   process.env.NEXT_PUBLIC_ROBINHOOD_EXPLORER ||
   "https://robinhoodchain.blockscout.com";
 
-/** Wallet_addEthereumChain params */
 export const robinhoodWalletAddParams = {
   chainId: ROBINHOOD_CHAIN_ID_HEX,
   chainName: "Robinhood Chain Mainnet",
@@ -23,6 +22,9 @@ export const ADDRESSES = {
   factory:
     process.env.NEXT_PUBLIC_FACTORY_ADDRESS ||
     ("0x0000000000000000000000000000000000000000" as `0x${string}`),
+  marginVault:
+    process.env.NEXT_PUBLIC_MARGIN_VAULT ||
+    ("0x0000000000000000000000000000000000000000" as `0x${string}`),
 };
 
 export function explorerAddress(addr: string): string {
@@ -33,6 +35,5 @@ export function explorerTx(hash: string): string {
   return `${ROBINHOOD_EXPLORER}/tx/${hash}`;
 }
 
-/** Suggested defaults for factory deploy UI */
 export const DEFAULT_CREATE_FEE_ETH = "0.0001";
-export const DEFAULT_PLATFORM_FEE_BPS = 250; // 2.5%
+export const DEFAULT_PLATFORM_FEE_BPS = 250;

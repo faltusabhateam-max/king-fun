@@ -12,18 +12,17 @@ const projectId =
   "";
 
 const metadata = {
-  name: "king.fun",
+  name: "KINGFUN",
   description:
-    "KING.FUN — NFT launchpad on Robinhood Chain. Launch collections, mint, earn creator + platform fees.",
+    "KINGFUN TRADING APP — Robinhood Chain MEME/ETH spot on Uniswap. Connect Wallet.",
   url:
     typeof window !== "undefined"
       ? window.location.origin
-      : process.env.NEXT_PUBLIC_APP_URL || "https://king.fun",
+      : process.env.NEXT_PUBLIC_APP_URL || "https://kingfun-live.vercel.app",
   icons: ["/logo.png"],
 };
 
 const networks: [AppKitNetwork, ...AppKitNetwork[]] = [robinhoodChain];
-
 const ethersAdapter = new EthersAdapter();
 
 if (projectId) {

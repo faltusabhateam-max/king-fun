@@ -15,40 +15,47 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://king.fun";
+const siteUrl =
+  process.env.NEXT_PUBLIC_APP_URL || "https://kingfun-live.vercel.app";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "king.fun — NFT Launchpad on Robinhood Chain",
-    template: "%s | king.fun",
+    default: "KINGFUN TRADING APP — Robinhood MEME/ETH",
+    template: "%s | KINGFUN",
   },
   description:
-    "Launch PFP NFT collections on Robinhood Chain. Wallet-sign only. Create fee to treasury; mint fees split with creators.",
-  applicationName: "king.fun",
+    "Robinhood Chain meme coin trading terminal. Real wallet swaps MEME/ETH on Uniswap. Connect Wallet.",
+  applicationName: "KINGFUN",
   keywords: [
-    "king.fun",
+    "KINGFUN",
     "Robinhood Chain",
-    "NFT launchpad",
-    "PFP",
-    "ERC721",
-    "mint",
+    "meme trading",
+    "Uniswap",
+    "MEME/ETH",
   ],
-  authors: [{ name: "king.fun" }],
+  authors: [{ name: "KINGFUN" }],
   openGraph: {
     type: "website",
     url: siteUrl,
-    title: "king.fun — NFT Launchpad",
+    title: "KINGFUN TRADING APP",
     description:
-      "Paper-cut NFT launchpad on Robinhood Chain. Launch PFPs. Mint with ETH.",
-    siteName: "king.fun",
-    images: [{ url: "/og-banner.png", width: 1200, height: 630, alt: "king.fun" }],
+      "Robinhood Chain–only meme trading. Connect Wallet. Real MEME/ETH swaps.",
+    siteName: "KINGFUN",
+    images: [
+      {
+        url: "https://kingfun-live.vercel.app/og-banner.png",
+        width: 1200,
+        height: 630,
+        alt: "KINGFUN TRADING APP",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "king.fun — NFT Launchpad",
-    description: "Launch PFP collections on Robinhood Chain.",
-    images: ["/og-banner.png"],
+    title: "KINGFUN TRADING APP",
+    description: "Robinhood Chain MEME/ETH trading. Connect Wallet.",
+    images: ["https://kingfun-live.vercel.app/og-banner.png"],
   },
   icons: {
     icon: [{ url: "/logo.png", type: "image/png" }],
@@ -59,7 +66,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#1a1714",
+  themeColor: "#000b07",
   colorScheme: "dark",
   width: "device-width",
   initialScale: 1,
@@ -72,13 +79,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Providers>
           <div className="relative z-10 flex min-h-screen flex-col">
             <SiteHeader />
-            <main className="relative mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
+            <main className="relative mx-auto w-full max-w-7xl flex-1 px-3 py-5 sm:px-5 sm:py-6">
               {children}
             </main>
             <SiteFooter />
