@@ -20,6 +20,7 @@ export interface CollectionRecord {
 
 export interface DeploymentsState {
   factoryAddress: string;
+  marginVault?: string;
   deployedAt?: number;
   deployer?: string;
   createFeeWei?: string;

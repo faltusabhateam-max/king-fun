@@ -90,22 +90,35 @@ export async function saveCollection(
 
 export async function getDeployments(): Promise<DeploymentsState> {
   const envFactory = process.env.NEXT_PUBLIC_FACTORY_ADDRESS?.trim();
-  if (envFactory && /^0x[a-fA-F0-9]{40}$/.test(envFactory)) {
-    const fromData = await readJson<DeploymentsState | null>(
-      DEPLOYMENTS_FILE,
-      null
-    );
-    const fromPublic = await readJson<DeploymentsState | null>(
-      PUBLIC_DEPLOYMENTS,
-      null
-    );
-    const base = fromData?.factoryAddress
+  const envVault = process.env.NEXT_PUBLIC_MARGIN_VAULT?.trim();
+  const fromData = await readJson<DeploymentsState | null>(
+    DEPLOYMENTS_FILE,
+    null
+  );
+  const fromPublic = await readJson<DeploymentsState | null>(
+    PUBLIC_DEPLOYMENTS,
+    null
+  );
+  const base =
+    fromData?.factoryAddress || fromData?.marginVault
       ? fromData
-      : fromPublic?.factoryAddress
+      : fromPublic?.factoryAddress || fromPublic?.marginVault
         ? fromPublic
         : null;
+
+  const factoryAddress =
+    envFactory && /^0x[a-fA-F0-9]{40}$/.test(envFactory)
+      ? envFactory
+      : base?.factoryAddress || "";
+  const marginVault =
+    envVault && /^0x[a-fA-F0-9]{40}$/.test(envVault)
+      ? envVault
+      : base?.marginVault;
+
+  if (factoryAddress || marginVault) {
     return {
-      factoryAddress: envFactory,
+      factoryAddress,
+      marginVault,
       chainId: base?.chainId ?? ROBINHOOD_CHAIN_ID,
       deployedAt: base?.deployedAt,
       deployer: base?.deployer,
@@ -116,14 +129,6 @@ export async function getDeployments(): Promise<DeploymentsState> {
     };
   }
 
-  const fromData = await readJson<DeploymentsState | null>(DEPLOYMENTS_FILE, null);
-  if (fromData?.factoryAddress) return fromData;
-  try {
-    const pub = await readJson<DeploymentsState | null>(PUBLIC_DEPLOYMENTS, null);
-    if (pub?.factoryAddress) return pub;
-  } catch {
-    /* ignore */
-  }
   return {
     factoryAddress: "",
     chainId: ROBINHOOD_CHAIN_ID,

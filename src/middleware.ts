@@ -3,9 +3,18 @@ import type { NextRequest } from "next/server";
 
 const COOKIE = "king_admin_deploy";
 
+function isDeployPath(pathname: string): boolean {
+  return (
+    pathname === "/deploy" ||
+    pathname.startsWith("/deploy/") ||
+    pathname === "/deploy-vault" ||
+    pathname.startsWith("/deploy-vault/")
+  );
+}
+
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  if (!pathname.startsWith("/deploy")) return NextResponse.next();
+  if (!isDeployPath(pathname)) return NextResponse.next();
 
   const secret = process.env.ADMIN_DEPLOY_SECRET || "";
   if (!secret) {
@@ -36,5 +45,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/deploy", "/deploy/:path*"],
+  matcher: ["/deploy", "/deploy/:path*", "/deploy-vault", "/deploy-vault/:path*"],
 };

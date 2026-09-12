@@ -3,10 +3,10 @@
 import { useEffect, useRef } from "react";
 import {
   createChart,
-  CandlestickSeries,
+  LineSeries,
   type IChartApi,
   type ISeriesApi,
-  type CandlestickData,
+  type LineData,
   type UTCTimestamp,
   ColorType,
 } from "lightweight-charts";
@@ -30,7 +30,7 @@ export function LiveChart({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const seriesRef = useRef<ISeriesApi<"Line"> | null>(null);
 
   useEffect(() => {
     if (!ref.current) return;
@@ -51,13 +51,9 @@ export function LiveChart({
         horzLine: { color: "rgba(0, 232, 143, 0.4)" },
       },
     });
-    const series = chart.addSeries(CandlestickSeries, {
-      upColor: "#00e88f",
-      downColor: "#ff3b6b",
-      borderUpColor: "#00e88f",
-      borderDownColor: "#ff3b6b",
-      wickUpColor: "#00e88f",
-      wickDownColor: "#ff3b6b",
+    const series = chart.addSeries(LineSeries, {
+      color: "#00e88f",
+      lineWidth: 2,
     });
     chartRef.current = chart;
     seriesRef.current = series;
@@ -76,28 +72,17 @@ export function LiveChart({
 
   useEffect(() => {
     if (!seriesRef.current) return;
-    let data: CandlestickData[] = (candles || [])
+    let data: LineData[] = (candles || [])
       .filter((c) => c.close > 0)
       .map((c) => ({
         time: c.time as UTCTimestamp,
-        open: c.open,
-        high: c.high,
-        low: c.low,
-        close: c.close,
+        value: c.close,
       }))
       .sort((a, b) => (a.time as number) - (b.time as number));
 
     if (data.length === 0 && markPrice && markPrice > 0) {
       const t = Math.floor(Date.now() / 1000) as UTCTimestamp;
-      data = [
-        {
-          time: t,
-          open: markPrice,
-          high: markPrice,
-          low: markPrice,
-          close: markPrice,
-        },
-      ];
+      data = [{ time: t, value: markPrice }];
     }
     // Dedup times
     const seen = new Set<number>();
