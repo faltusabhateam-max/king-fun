@@ -14,11 +14,20 @@ function isDeployPath(pathname: string): boolean {
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  if (
+    pathname === "/smart-money" ||
+    pathname.startsWith("/smart-money/") ||
+    pathname === "/whales" ||
+    pathname.startsWith("/whales/")
+  ) {
+    return NextResponse.redirect(new URL("/", req.url));
+  }
+
   if (!isDeployPath(pathname)) return NextResponse.next();
 
   const secret = process.env.ADMIN_DEPLOY_SECRET || "";
   if (!secret) {
-    // Fail closed in production if unset
     if (process.env.NODE_ENV === "production") {
       return new NextResponse("Not found", { status: 404 });
     }
@@ -45,5 +54,14 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/deploy", "/deploy/:path*", "/deploy-vault", "/deploy-vault/:path*"],
+  matcher: [
+    "/deploy",
+    "/deploy/:path*",
+    "/deploy-vault",
+    "/deploy-vault/:path*",
+    "/smart-money",
+    "/smart-money/:path*",
+    "/whales",
+    "/whales/:path*",
+  ],
 };

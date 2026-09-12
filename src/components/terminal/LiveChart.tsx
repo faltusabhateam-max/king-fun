@@ -3,12 +3,16 @@
 import { useEffect, useRef } from "react";
 import {
   createChart,
-  LineSeries,
+  AreaSeries,
+  createSeriesMarkers,
   type IChartApi,
   type ISeriesApi,
+  type ISeriesMarkersPluginApi,
   type LineData,
   type UTCTimestamp,
   ColorType,
+  type SeriesMarker,
+  type Time,
 } from "lightweight-charts";
 
 export type ChartCandle = {
@@ -19,18 +23,27 @@ export type ChartCandle = {
   close: number;
 };
 
+export type ChartTradeMark = {
+  time: number;
+  side: "buy" | "sell";
+  price: number;
+};
+
 export function LiveChart({
   candles,
   height = 380,
   markPrice,
+  markers = [],
 }: {
   candles: ChartCandle[];
   height?: number;
   markPrice?: number;
+  markers?: ChartTradeMark[];
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const seriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const seriesRef = useRef<ISeriesApi<"Area"> | null>(null);
+  const markersApiRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
 
   useEffect(() => {
     if (!ref.current) return;
@@ -51,12 +64,15 @@ export function LiveChart({
         horzLine: { color: "rgba(0, 232, 143, 0.4)" },
       },
     });
-    const series = chart.addSeries(LineSeries, {
-      color: "#00e88f",
+    const series = chart.addSeries(AreaSeries, {
+      lineColor: "#00e88f",
+      topColor: "rgba(0, 232, 143, 0.35)",
+      bottomColor: "rgba(0, 232, 143, 0.02)",
       lineWidth: 2,
     });
     chartRef.current = chart;
     seriesRef.current = series;
+    markersApiRef.current = createSeriesMarkers(series, []);
     const onResize = () => {
       if (ref.current) chart.applyOptions({ width: ref.current.clientWidth });
     };
@@ -67,6 +83,7 @@ export function LiveChart({
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
+      markersApiRef.current = null;
     };
   }, [height]);
 
@@ -84,7 +101,6 @@ export function LiveChart({
       const t = Math.floor(Date.now() / 1000) as UTCTimestamp;
       data = [{ time: t, value: markPrice }];
     }
-    // Dedup times
     const seen = new Set<number>();
     data = data.filter((d) => {
       const t = d.time as number;
@@ -95,8 +111,33 @@ export function LiveChart({
     if (data.length) {
       seriesRef.current.setData(data);
       chartRef.current?.timeScale().fitContent();
+    } else {
+      seriesRef.current.setData([]);
     }
-  }, [candles, markPrice]);
+
+    const seriesMarkers: SeriesMarker<Time>[] = (markers || [])
+      .filter((m) => m.time > 0 && m.price > 0)
+      .map((m) => ({
+        time: m.time as UTCTimestamp,
+        position: (m.side === "buy" ? "belowBar" : "aboveBar") as
+          | "belowBar"
+          | "aboveBar",
+        color: m.side === "buy" ? "#00e88f" : "#ff3b6b",
+        shape: (m.side === "buy" ? "arrowUp" : "arrowDown") as
+          | "arrowUp"
+          | "arrowDown",
+        text: m.side === "buy" ? "B" : "S",
+      }))
+      .reduce((acc, m) => {
+        const t = m.time as number;
+        if (acc.some((x) => (x.time as number) === t)) return acc;
+        acc.push(m);
+        return acc;
+      }, [] as SeriesMarker<Time>[])
+      .sort((a, b) => (a.time as number) - (b.time as number));
+
+    markersApiRef.current?.setMarkers(seriesMarkers);
+  }, [candles, markPrice, markers]);
 
   return <div ref={ref} className="w-full" />;
 }

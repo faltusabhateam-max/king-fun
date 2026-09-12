@@ -1,100 +1,167 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-type Alert = { id: string; ca: string; aboveEth?: number; belowEth?: number };
-
-const KEY = "kingfun_alerts";
+import {
+  loadAlerts,
+  saveAlerts,
+  type PriceAlert,
+} from "@/lib/alerts-store";
+import { shortAddr } from "@/lib/format";
 
 export default function AlertsPage() {
-  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [alerts, setAlerts] = useState<PriceAlert[]>([]);
   const [ca, setCa] = useState("");
-  const [above, setAbove] = useState("");
-  const [below, setBelow] = useState("");
+  const [pct, setPct] = useState("5");
+  const [direction, setDirection] = useState<"up" | "down">("up");
+  const [perm, setPerm] = useState<string>("default");
   const [msg, setMsg] = useState("");
 
   useEffect(() => {
-    setAlerts(JSON.parse(localStorage.getItem(KEY) || "[]"));
+    setAlerts(loadAlerts());
+    if (typeof Notification !== "undefined") {
+      setPerm(Notification.permission);
+    }
   }, []);
 
-  function save(next: Alert[]) {
+  function persist(next: PriceAlert[]) {
     setAlerts(next);
-    localStorage.setItem(KEY, JSON.stringify(next));
+    saveAlerts(next);
   }
 
-  async function check() {
-    setMsg("");
-    for (const a of alerts) {
-      try {
-        const res = await fetch(`/api/token?ca=${a.ca}`);
-        const data = await res.json();
-        if (!data.ok) continue;
-        const px = data.market.priceEth as number;
-        if (a.aboveEth != null && px >= a.aboveEth) {
-          setMsg(`${a.ca.slice(0, 8)}… above ${a.aboveEth} ETH (now ${px})`);
-        }
-        if (a.belowEth != null && px <= a.belowEth) {
-          setMsg(`${a.ca.slice(0, 8)}… below ${a.belowEth} ETH (now ${px})`);
-        }
-      } catch {
-        /* ignore */
-      }
+  async function requestNotif() {
+    if (typeof Notification === "undefined") {
+      setMsg("Notifications not supported in this browser.");
+      return;
     }
-    if (!msg) setMsg("Checked on-chain marks.");
+    const p = await Notification.requestPermission();
+    setPerm(p);
+    setMsg(p === "granted" ? "Desktop notifications enabled." : "Permission denied.");
+  }
+
+  async function addAlert() {
+    if (!/^0x[a-fA-F0-9]{40}$/.test(ca)) {
+      setMsg("Enter a valid token CA.");
+      return;
+    }
+    const thresholdPct = Number(pct);
+    if (!(thresholdPct > 0)) {
+      setMsg("Threshold must be > 0%.");
+      return;
+    }
+    setMsg("Loading on-chain mark…");
+    try {
+      const res = await fetch(`/api/token?ca=${encodeURIComponent(ca)}`);
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "Token load failed");
+      const baselineEth = Number(data.market.priceEth);
+      if (!(baselineEth > 0)) throw new Error("No valid mark price");
+      const row: PriceAlert = {
+        id: crypto.randomUUID(),
+        ca: ca.toLowerCase(),
+        symbol: data.market.symbol,
+        thresholdPct,
+        direction,
+        enabled: true,
+        baselineEth,
+      };
+      persist([row, ...alerts]);
+      setCa("");
+      setMsg(`Watching ${data.market.symbol} · baseline ${baselineEth}`);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed to add alert");
+    }
   }
 
   return (
     <div className="mx-auto max-w-xl space-y-4">
       <h1 className="text-xl font-black">Alerts</h1>
       <p className="text-sm text-[var(--muted)]">
-        Local price alerts vs real on-chain TOKEN/ETH marks. No fake feeds.
+        Watch a token CA for price up/down vs the real pool mark. Stored in
+        localStorage. Optional browser notifications.
       </p>
-      <div className="kf-panel space-y-2 p-4">
-        <input className="king-input font-mono text-sm" placeholder="Token CA" value={ca} onChange={(e) => setCa(e.target.value.trim())} />
-        <div className="grid grid-cols-2 gap-2">
-          <input className="king-input" placeholder="Above ETH" value={above} onChange={(e) => setAbove(e.target.value)} />
-          <input className="king-input" placeholder="Below ETH" value={below} onChange={(e) => setBelow(e.target.value)} />
+
+      <div className="kf-panel space-y-3 p-4">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-[var(--muted)]">Notifications: {perm}</span>
+          <button type="button" className="king-btn-ghost py-1 text-xs" onClick={requestNotif}>
+            Enable notifications
+          </button>
         </div>
-        <button
-          type="button"
-          className="king-btn-primary"
-          onClick={() => {
-            if (!/^0x[a-fA-F0-9]{40}$/.test(ca)) return;
-            save([
-              ...alerts,
-              {
-                id: crypto.randomUUID(),
-                ca: ca.toLowerCase(),
-                aboveEth: above ? Number(above) : undefined,
-                belowEth: below ? Number(below) : undefined,
-              },
-            ]);
-            setCa("");
-            setAbove("");
-            setBelow("");
-          }}
-        >
+        <input
+          className="king-input font-mono text-sm"
+          placeholder="Token CA 0x…"
+          value={ca}
+          onChange={(e) => setCa(e.target.value.trim())}
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="king-label">Threshold %</label>
+            <input
+              className="king-input"
+              value={pct}
+              onChange={(e) => setPct(e.target.value)}
+              inputMode="decimal"
+            />
+          </div>
+          <div>
+            <label className="king-label">Direction</label>
+            <select
+              className="king-input"
+              value={direction}
+              onChange={(e) => setDirection(e.target.value as "up" | "down")}
+            >
+              <option value="up">Price up</option>
+              <option value="down">Price down</option>
+            </select>
+          </div>
+        </div>
+        <button type="button" className="king-btn-primary" onClick={addAlert}>
           Add alert
         </button>
-        <button type="button" className="king-btn-ghost" onClick={check}>
-          Check now
-        </button>
         {msg && <p className="text-xs text-[var(--accent)]">{msg}</p>}
-        <ul className="space-y-2 text-sm">
-          {alerts.map((a) => (
-            <li key={a.id} className="flex justify-between gap-2 border-b border-[var(--cut)]/40 py-2">
-              <span className="font-mono text-xs">{a.ca}</span>
-              <button
-                type="button"
-                className="text-rose-300"
-                onClick={() => save(alerts.filter((x) => x.id !== a.id))}
-              >
-                Remove
-              </button>
-            </li>
-          ))}
-        </ul>
       </div>
+
+      <ul className="space-y-2">
+        {alerts.map((a) => (
+          <li key={a.id} className="kf-panel flex flex-wrap items-center gap-3 p-3 text-sm">
+            <div className="min-w-0 flex-1">
+              <div className="font-bold">
+                {a.symbol || shortAddr(a.ca)}{" "}
+                <span className="text-[var(--muted)]">
+                  {a.direction === "up" ? "↑" : "↓"} {a.thresholdPct}%
+                </span>
+              </div>
+              <div className="font-mono text-[10px] text-[var(--muted)]">
+                {a.ca} · base {a.baselineEth}
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={a.enabled}
+                onChange={(e) =>
+                  persist(
+                    alerts.map((x) =>
+                      x.id === a.id ? { ...x, enabled: e.target.checked } : x
+                    )
+                  )
+                }
+              />
+              On
+            </label>
+            <button
+              type="button"
+              className="text-xs text-rose-300"
+              onClick={() => persist(alerts.filter((x) => x.id !== a.id))}
+            >
+              Remove
+            </button>
+          </li>
+        ))}
+        {alerts.length === 0 && (
+          <li className="text-sm text-[var(--muted)]">No alerts yet.</li>
+        )}
+      </ul>
     </div>
   );
 }

@@ -18,13 +18,23 @@ import { UNISWAP_V2_ROUTER } from "@/lib/uniswap";
 import VaultArtifact from "@/lib/abi/KingMarginVault.json";
 import { Vault, AlertTriangle, CheckCircle2, ExternalLink } from "lucide-react";
 import Link from "next/link";
+import {
+  TxConfirmSheet,
+  type TxConfirmDetails,
+  type TxConfirmStatus,
+} from "@/components/TxConfirmSheet";
+import { shortAddr } from "@/lib/format";
+
+function isUserReject(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e);
+  return /user rejected|denied|rejected the request|ACTION_REJECTED/i.test(msg);
+}
 
 export default function DeployVaultPage() {
   const { open } = useAppKit();
   const { address, isConnected } = useAppKitAccount();
 
   const [status, setStatus] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   const [gasEstimate, setGasEstimate] = useState<string | null>(null);
   const [gasEth, setGasEth] = useState<string | null>(null);
   const [deployed, setDeployed] = useState<{
@@ -32,6 +42,12 @@ export default function DeployVaultPage() {
     txHash: string;
   } | null>(null);
   const [existing, setExisting] = useState<string>("");
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetStatus, setSheetStatus] = useState<TxConfirmStatus>("review");
+  const [sheetMsg, setSheetMsg] = useState<string | undefined>();
+  const [sheetDetails, setSheetDetails] = useState<TxConfirmDetails | null>(
+    null
+  );
 
   useEffect(() => {
     fetch("/api/deployments")
@@ -63,7 +79,6 @@ export default function DeployVaultPage() {
         from: address,
       });
       const feeData = await provider.getFeeData();
-      // Prefer network gasPrice / feeData — do not inflate
       const gasPrice = feeData.gasPrice ?? feeData.maxFeePerGas ?? BigInt(0);
       const cost = gas * gasPrice;
       const ethStr = formatEth(cost, 10);
@@ -86,14 +101,33 @@ export default function DeployVaultPage() {
     }
   }, [isConnected, address, estimateGas]);
 
-  async function handleDeploy() {
+  function askDeploy() {
     if (!isConnected || !address) {
       open();
       return;
     }
+    setSheetDetails({
+      title: "Deploy Margin Vault",
+      mode: "Vault",
+      action: "Deploy KingMarginVault with Uniswap V2 router on Robinhood Chain.",
+      amountLabel: gasEth ? `Est. gas ~${gasEth} ETH` : "Gas estimated in wallet",
+      vaultLabel: shortAddr(UNISWAP_V2_ROUTER),
+      gasHint: gasEstimate || "Network fee shown in wallet",
+      footnotes: [
+        "Confirm in KINGFUN first. Wallet approval is the final step.",
+        "No server keys — you sign the deploy transaction.",
+        "After deploy, seed with depositLender() on the Leverage page.",
+      ],
+    });
+    setSheetStatus("review");
+    setSheetMsg(undefined);
+    setSheetOpen(true);
+  }
 
-    setBusy(true);
-    setStatus("Switching to Robinhood Chain if needed…");
+  async function executeDeploy() {
+    if (!isConnected || !address) return;
+    setSheetStatus("waiting_wallet");
+    setStatus(null);
     try {
       const provider = await getBrowserProvider();
       if (!provider) throw new Error("No browser wallet (EIP-1193) found");
@@ -104,14 +138,11 @@ export default function DeployVaultPage() {
         throw new Error(`Wrong chain ${net.chainId}; need ${ROBINHOOD_CHAIN_ID}`);
       }
 
-      setStatus("Confirm Deploy Margin Vault in your wallet…");
       const factory = new ContractFactory(
         VaultArtifact.abi,
         VaultArtifact.bytecode,
         signer
       );
-
-      // Use network feeData as-is (lowest practical gas). Optional gasLimit = estimate * 110%.
       const deployTx = await factory.getDeployTransaction(UNISWAP_V2_ROUTER);
       let gasLimit: bigint | undefined;
       try {
@@ -132,7 +163,6 @@ export default function DeployVaultPage() {
         maxPriorityFeePerGas?: bigint;
       } = {};
       if (gasLimit) overrides.gasLimit = gasLimit;
-      // Prefer legacy gasPrice when present; else use feeData tips without inflating
       if (feeData.gasPrice != null) {
         overrides.gasPrice = feeData.gasPrice;
       } else if (feeData.maxFeePerGas != null) {
@@ -141,14 +171,13 @@ export default function DeployVaultPage() {
           feeData.maxPriorityFeePerGas ?? BigInt(1);
       }
 
+      setSheetStatus("pending");
       const contract = await factory.deploy(UNISWAP_V2_ROUTER, overrides);
-      setStatus("Waiting for confirmation…");
       await contract.waitForDeployment();
       const vaultAddress = await contract.getAddress();
       const tx = contract.deploymentTransaction();
       const txHash = tx?.hash || "";
 
-      setStatus("Saving vault address…");
       await fetch("/api/deployments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -163,11 +192,16 @@ export default function DeployVaultPage() {
 
       setDeployed({ address: vaultAddress, txHash });
       setExisting(vaultAddress);
-      setStatus(null);
+      setSheetStatus("confirmed");
     } catch (e) {
+      if (isUserReject(e)) {
+        setSheetStatus("rejected");
+        setSheetMsg("You rejected the request in your wallet.");
+      } else {
+        setSheetStatus("error");
+        setSheetMsg(e instanceof Error ? e.message : "Deploy failed");
+      }
       setStatus(e instanceof Error ? e.message : "Deploy failed");
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -181,7 +215,7 @@ export default function DeployVaultPage() {
               Deploy Margin Vault
             </h1>
             <p className="text-sm text-[#e8eee9]/55">
-              Low gas on Robinhood Chain · Chain ID 4663 · You sign — no keys stored
+              Low gas on Robinhood Chain · Chain ID 4663 · Confirm in-app, then wallet
             </p>
           </div>
         </div>
@@ -193,8 +227,7 @@ export default function DeployVaultPage() {
           <p className="mt-1 text-xs text-[#e8eee9]/55">
             Deploys <strong>KingMarginVault</strong> with Uniswap V2 router{" "}
             <code className="text-[#e8eee9]/70">{UNISWAP_V2_ROUTER}</code>. After
-            deploy, seed liquidity by calling <code>depositLender()</code> with
-            ETH (you can do that later).
+            deploy, seed liquidity on the Leverage page.
           </p>
         </div>
 
@@ -231,17 +264,11 @@ export default function DeployVaultPage() {
               <AlertTriangle size={14} /> Gas & funds
             </div>
             <p>
-              RH gas is cheap — network <code>gasPrice</code> / feeData only (no
-              inflate). A tiny ETH balance covers deploy.
+              RH gas is cheap — network <code>gasPrice</code> / feeData only.
             </p>
             {gasEstimate && (
               <p className="mt-2 font-mono text-[11px] text-[#e8eee9]/60">
                 {gasEstimate}
-              </p>
-            )}
-            {gasEth && (
-              <p className="mt-1 text-[11px] text-[#00e88f]/80">
-                Live estimate: ~{gasEth} ETH
               </p>
             )}
           </div>
@@ -258,10 +285,9 @@ export default function DeployVaultPage() {
             <button
               type="button"
               className="king-btn-primary w-full py-3"
-              disabled={busy}
-              onClick={handleDeploy}
+              onClick={askDeploy}
             >
-              {busy ? "Deploying…" : "Deploy Margin Vault"}
+              Deploy Margin Vault
             </button>
           )}
 
@@ -271,12 +297,6 @@ export default function DeployVaultPage() {
             <div className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-4 text-sm">
               <p className="font-semibold text-[#00e88f]">Margin vault deployed!</p>
               <p className="mt-2 break-all font-mono text-xs">{deployed.address}</p>
-              <p className="mt-2 text-xs text-[#e8eee9]/55">
-                Paste this address into{" "}
-                <code className="text-[#e8eee9]/70">NEXT_PUBLIC_MARGIN_VAULT</code>{" "}
-                on Vercel if env is needed. Then seed with{" "}
-                <code className="text-[#e8eee9]/70">depositLender()</code> + ETH.
-              </p>
               <div className="mt-3 flex flex-wrap gap-3">
                 <a
                   href={explorerAddress(deployed.address)}
@@ -304,12 +324,18 @@ export default function DeployVaultPage() {
           )}
         </div>
 
-        <p className="mt-4 text-xs text-[#e8eee9]/40">
-          Constructor:{" "}
-          <code className="text-[#e8eee9]/55">(address router_)</code>. Seed note:
-          after deploy call <code className="text-[#e8eee9]/55">depositLender()</code>{" "}
-          with ETH when ready.
-        </p>
+        <TxConfirmSheet
+          open={sheetOpen}
+          details={sheetDetails}
+          status={sheetStatus}
+          statusMessage={sheetMsg}
+          onConfirm={executeDeploy}
+          onClose={() => {
+            if (sheetStatus === "waiting_wallet" || sheetStatus === "pending")
+              return;
+            setSheetOpen(false);
+          }}
+        />
       </div>
     </PageTransition>
   );

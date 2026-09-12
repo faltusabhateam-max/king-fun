@@ -7,15 +7,12 @@ import { useState } from "react";
 import { WalletButton } from "./WalletButton";
 
 const LINKS = [
-  { href: "/", label: "Trade" },
+  { href: "/", label: "Home" },
+  { href: "/trade", label: "Trade" },
   { href: "/discover", label: "Discover" },
-  { href: "/portfolio", label: "Portfolio" },
-  { href: "/leverage", label: "Leverage" },
-  { href: "/calculators", label: "Calcs" },
+  { href: "/portfolio", label: "Wallet" },
   { href: "/alerts", label: "Alerts" },
-  { href: "/points", label: "Points" },
-  { href: "/smart-money", label: "Smart Money" },
-  { href: "/whales", label: "Whales" },
+  { href: "/leverage", label: "Leverage" },
   { href: "/about", label: "About" },
 ];
 
@@ -38,7 +35,7 @@ export function SiteHeader() {
           <span className="text-[var(--accent)]">FUN</span>
         </Link>
         <span className="hidden rounded border border-[var(--cut)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--accent)] sm:inline">
-          LIVE SPOT · TOKEN/ETH
+          LIVE · TOKEN/ETH
         </span>
 
         <nav className="ml-1 hidden flex-1 items-center gap-0.5 overflow-x-auto lg:flex">

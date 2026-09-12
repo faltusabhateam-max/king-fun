@@ -4,6 +4,7 @@ import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
+import { AlertWatcher } from "@/components/AlertWatcher";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -81,6 +82,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Providers>
+          <AlertWatcher />
           <div className="relative z-10 flex min-h-screen flex-col">
             <SiteHeader />
             <main className="relative mx-auto w-full max-w-7xl flex-1 px-3 py-5 sm:px-5 sm:py-6">

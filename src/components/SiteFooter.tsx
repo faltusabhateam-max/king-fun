@@ -7,12 +7,18 @@ export function SiteFooter() {
         <p>
           KINGFUN — Robinhood Chain token/ETH spot. Not affiliated with Robinhood Markets, Inc.
         </p>
-        <div className="flex gap-3">
-          <Link href="/about" className="hover:text-[var(--accent)]">
-            About
+        <div className="flex flex-wrap gap-3">
+          <Link href="/trade" className="hover:text-[var(--accent)]">
+            Trade
+          </Link>
+          <Link href="/portfolio" className="hover:text-[var(--accent)]">
+            Wallet
           </Link>
           <Link href="/leverage" className="hover:text-[var(--accent)]">
             Leverage
+          </Link>
+          <Link href="/about" className="hover:text-[var(--accent)]">
+            About
           </Link>
           <a
             href="https://robinhoodchain.blockscout.com"

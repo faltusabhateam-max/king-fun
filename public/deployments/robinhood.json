@@ -3,5 +3,6 @@
   "chainId": 4663,
   "deployer": "0x598aC744AFC99ef8DA1ce982Cca22067340B6428",
   "platformTreasury": "0x598aC744AFC99ef8DA1ce982Cca22067340B6428",
-  "deployedAt": 1789220201655
+  "deployedAt": 1789220201655,
+  "marginVault": "0xb479De416fe30D187C1Dc2f6FDa023D2752b60e2"
 }

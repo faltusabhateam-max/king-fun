@@ -182,3 +182,35 @@ body::before {
 }
 
 w3m-modal, appkit-modal { z-index: 9999 !important; }
+
+/* Motion explainer panels */
+.kf-motion-panel {
+  position: relative;
+  height: 140px;
+  background:
+    radial-gradient(120px 60px at 20% 30%, rgba(0, 232, 143, 0.12), transparent),
+    linear-gradient(180deg, #001a10, #000805);
+  border-bottom: 1px solid var(--cut);
+}
+.kf-scanline {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0, 232, 143, 0.03) 3px,
+    rgba(0, 232, 143, 0.03) 4px
+  );
+  animation: kfScan 4s linear infinite;
+}
+@keyframes kfScan {
+  0% { opacity: 0.35; }
+  50% { opacity: 0.7; }
+  100% { opacity: 0.35; }
+}
+@keyframes kfSheetIn {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}

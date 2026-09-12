@@ -18,13 +18,17 @@ export const robinhoodWalletAddParams = {
   blockExplorerUrls: [ROBINHOOD_EXPLORER],
 };
 
+/** Deployed KingMarginVault on Robinhood Chain (baked fallback). */
+export const DEPLOYED_MARGIN_VAULT =
+  "0xb479De416fe30D187C1Dc2f6FDa023D2752b60e2" as const;
+
 export const ADDRESSES = {
   factory:
     process.env.NEXT_PUBLIC_FACTORY_ADDRESS ||
-    ("0x0000000000000000000000000000000000000000" as `0x${string}`),
+    ("0x4D3d766dDa77FA43587ECcdB16F5CCAEf4b158be" as `0x${string}`),
+  /** Prefer NEXT_PUBLIC_MARGIN_VAULT; fall back to deployed vault. */
   marginVault:
-    process.env.NEXT_PUBLIC_MARGIN_VAULT ||
-    ("0x0000000000000000000000000000000000000000" as `0x${string}`),
+    process.env.NEXT_PUBLIC_MARGIN_VAULT || DEPLOYED_MARGIN_VAULT,
 };
 
 export function explorerAddress(addr: string): string {

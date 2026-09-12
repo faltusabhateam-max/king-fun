@@ -12,19 +12,27 @@ export type Candle = {
   volumeEth: number;
 };
 
-/** Build OHLCV from real Uniswap V2 Swap events (price in ETH per token). */
-export async function candlesFromV2Swaps(
+export type SwapTrade = {
+  time: number;
+  price: number;
+  volEth: number;
+  side: "buy" | "sell";
+  txHash: string;
+  blockNumber: number;
+};
+
+async function loadV2SwapTrades(
   market: MemeEthMarket,
-  timeframeSec: number,
   lookbackBlocks = 2000
-): Promise<Candle[]> {
+): Promise<SwapTrade[]> {
   if (market.kind !== "v2") return [];
   const rpc = getRpc();
   const latest = await rpc.getBlockNumber();
   const fromBlock = Math.max(0, latest - lookbackBlocks);
   const latestBlock = await rpc.getBlock(latest);
-  const latestTs = Number(latestBlock?.timestamp ?? Math.floor(Date.now() / 1000));
-  // Approx 1s block time on Orbit L2 — refine with from-block timestamp
+  const latestTs = Number(
+    latestBlock?.timestamp ?? Math.floor(Date.now() / 1000)
+  );
   const fromBlk = await rpc.getBlock(fromBlock);
   const fromTs = Number(fromBlk?.timestamp ?? latestTs - lookbackBlocks);
   const spanBlocks = Math.max(1, latest - fromBlock);
@@ -41,15 +49,13 @@ export async function candlesFromV2Swaps(
     topics: [topic],
   });
 
-  // token0 via one call
   const { Contract } = await import("ethers");
   const token0 = (
     await new Contract(market.pool, V2_PAIR_ABI, rpc).token0()
   ).toLowerCase();
   const tokenIs0 = token0 === market.token.toLowerCase();
 
-  type Trade = { t: number; price: number; volEth: number };
-  const trades: Trade[] = [];
+  const trades: SwapTrade[] = [];
 
   for (const log of logs) {
     try {
@@ -64,20 +70,31 @@ export async function candlesFromV2Swaps(
       const a1out = parsed.args.amount1Out as bigint;
       let ethAmt = 0n;
       let tokAmt = 0n;
+      let side: "buy" | "sell" = "buy";
       if (tokenIs0) {
+        // token0=token, token1=WETH
         if (a1in > 0n && a0out > 0n) {
+          // ETH in → token out = BUY
           ethAmt = a1in;
           tokAmt = a0out;
+          side = "buy";
         } else if (a0in > 0n && a1out > 0n) {
+          // token in → ETH out = SELL
           ethAmt = a1out;
           tokAmt = a0in;
+          side = "sell";
         }
-      } else if (a0in > 0n && a1out > 0n) {
-        ethAmt = a0in;
-        tokAmt = a1out;
-      } else if (a1in > 0n && a0out > 0n) {
-        ethAmt = a0out;
-        tokAmt = a1in;
+      } else {
+        // token1=token, token0=WETH
+        if (a0in > 0n && a1out > 0n) {
+          ethAmt = a0in;
+          tokAmt = a1out;
+          side = "buy";
+        } else if (a1in > 0n && a0out > 0n) {
+          ethAmt = a0out;
+          tokAmt = a1in;
+          side = "sell";
+        }
       }
       if (ethAmt === 0n || tokAmt === 0n) continue;
       const price =
@@ -88,16 +105,31 @@ export async function candlesFromV2Swaps(
         fromTs + (Number(log.blockNumber) - fromBlock) * secPerBlock
       );
       trades.push({
-        t,
+        time: t,
         price,
         volEth: Number(formatUnits(ethAmt, 18)),
+        side,
+        txHash: log.transactionHash,
+        blockNumber: Number(log.blockNumber),
       });
     } catch {
       /* skip */
     }
   }
 
+  trades.sort((a, b) => a.time - b.time);
+  return trades;
+}
+
+/** Build OHLCV from real Uniswap V2 Swap events (price in ETH per token). */
+export async function candlesFromV2Swaps(
+  market: MemeEthMarket,
+  timeframeSec: number,
+  lookbackBlocks = 2000
+): Promise<Candle[]> {
+  const trades = await loadV2SwapTrades(market, lookbackBlocks);
   if (trades.length === 0) {
+    if (!(market.priceEth > 0)) return [];
     const now = Math.floor(Date.now() / 1000);
     return [
       {
@@ -111,11 +143,10 @@ export async function candlesFromV2Swaps(
     ];
   }
 
-  trades.sort((a, b) => a.t - b.t);
   const map = new Map<number, Candle>();
   const bucketSec = Math.max(1, timeframeSec);
   for (const tr of trades) {
-    const bucket = tr.t - (tr.t % bucketSec);
+    const bucket = tr.time - (tr.time % bucketSec);
     const c = map.get(bucket);
     if (!c) {
       map.set(bucket, {
@@ -134,4 +165,13 @@ export async function candlesFromV2Swaps(
     }
   }
   return [...map.values()].sort((a, b) => a.time - b.time);
+}
+
+export async function tradesFromV2Swaps(
+  market: MemeEthMarket,
+  lookbackBlocks = 2000,
+  limit = 40
+): Promise<SwapTrade[]> {
+  const trades = await loadV2SwapTrades(market, lookbackBlocks);
+  return trades.slice(-limit).reverse();
 }
