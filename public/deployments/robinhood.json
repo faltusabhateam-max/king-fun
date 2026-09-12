@@ -1,1 +1,7 @@
-{"factoryAddress":"","chainId":4663}
+{
+  "factoryAddress": "0x4D3d766dDa77FA43587ECcdB16F5CCAEf4b158be",
+  "chainId": 4663,
+  "deployer": "0x598aC744AFC99ef8DA1ce982Cca22067340B6428",
+  "platformTreasury": "0x598aC744AFC99ef8DA1ce982Cca22067340B6428",
+  "deployedAt": 1789220201655
+}

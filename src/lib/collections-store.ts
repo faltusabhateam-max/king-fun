@@ -34,6 +34,12 @@ async function writeJson<T>(file: string, data: T): Promise<void> {
   await fs.writeFile(file, JSON.stringify(data, null, 2), "utf8");
 }
 
+function isReadOnlyFsError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const code = (err as NodeJS.ErrnoException).code;
+  return code === "EROFS" || code === "EACCES";
+}
+
 export async function getCollections(): Promise<CollectionRecord[]> {
   const list = await readJson<CollectionRecord[]>(COLLECTIONS_FILE, []);
   return list.sort((a, b) => b.createdAt - a.createdAt);
@@ -62,6 +68,33 @@ export async function saveCollection(
 }
 
 export async function getDeployments(): Promise<DeploymentsState> {
+  const envFactory = process.env.NEXT_PUBLIC_FACTORY_ADDRESS?.trim();
+  if (envFactory && /^0x[a-fA-F0-9]{40}$/.test(envFactory)) {
+    const fromData = await readJson<DeploymentsState | null>(
+      DEPLOYMENTS_FILE,
+      null
+    );
+    const fromPublic = await readJson<DeploymentsState | null>(
+      PUBLIC_DEPLOYMENTS,
+      null
+    );
+    const base = fromData?.factoryAddress
+      ? fromData
+      : fromPublic?.factoryAddress
+        ? fromPublic
+        : null;
+    return {
+      factoryAddress: envFactory,
+      chainId: base?.chainId ?? ROBINHOOD_CHAIN_ID,
+      deployedAt: base?.deployedAt,
+      deployer: base?.deployer,
+      createFeeWei: base?.createFeeWei,
+      platformFeeBps: base?.platformFeeBps,
+      platformTreasury: base?.platformTreasury,
+      txHash: base?.txHash,
+    };
+  }
+
   const fromData = await readJson<DeploymentsState | null>(DEPLOYMENTS_FILE, null);
   if (fromData?.factoryAddress) return fromData;
   try {
@@ -79,8 +112,21 @@ export async function getDeployments(): Promise<DeploymentsState> {
 export async function saveDeployments(
   state: DeploymentsState
 ): Promise<DeploymentsState> {
-  await writeJson(DEPLOYMENTS_FILE, state);
-  await writeJson(PUBLIC_DEPLOYMENTS, state);
+  // Vercel serverless has a read-only filesystem; skip disk writes there.
+  if (process.env.VERCEL) {
+    return state;
+  }
+
+  try {
+    await writeJson(DEPLOYMENTS_FILE, state);
+    await writeJson(PUBLIC_DEPLOYMENTS, state);
+  } catch (err) {
+    if (isReadOnlyFsError(err)) {
+      // Local/dev may still hit EROFS/EACCES in some hosts — return state anyway.
+      return state;
+    }
+    throw err;
+  }
   return state;
 }
 
