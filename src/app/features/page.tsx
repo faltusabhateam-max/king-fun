@@ -4,11 +4,11 @@ const GROUPS = [
   {
     title: "Live now (on-chain)",
     items: [
-      { href: "/", label: "MEME/ETH spot trade (Uniswap V2/V3)" },
+      { href: "/", label: "TOKEN/ETH spot (any CA, Uniswap V2/V3)" },
       { href: "/", label: "Paste CA → ERC20 + pool resolve" },
       { href: "/", label: "Quotes + wallet-signed swaps" },
       { href: "/", label: "Candles from V2 Swap logs" },
-      { href: "/discover", label: "Discover MEME/ETH (DexScreener)" },
+      { href: "/discover", label: "Discover TOKEN/ETH (DexScreener)" },
       { href: "/portfolio", label: "Wallet ETH + token balances" },
       { href: "/alerts", label: "Local alerts vs on-chain mark" },
       { href: "/calculators", label: "PnL / liq / fee calculators" },

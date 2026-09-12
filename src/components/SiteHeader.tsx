@@ -38,7 +38,7 @@ export function SiteHeader() {
           <span className="text-[var(--accent)]">FUN</span>
         </Link>
         <span className="hidden rounded border border-[var(--cut)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--accent)] sm:inline">
-          LIVE SPOT · MEME/ETH
+          LIVE SPOT · TOKEN/ETH
         </span>
 
         <nav className="ml-1 hidden flex-1 items-center gap-0.5 overflow-x-auto lg:flex">

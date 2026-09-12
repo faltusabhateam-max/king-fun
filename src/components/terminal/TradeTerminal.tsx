@@ -186,7 +186,7 @@ export function TradeTerminal({ initialCa = "" }: { initialCa?: string }) {
       <section className="kf-panel space-y-3 p-4">
         <div className="flex flex-wrap items-end gap-2">
           <div className="min-w-[220px] flex-1">
-            <label className="king-label">Token CA (MEME/ETH)</label>
+            <label className="king-label">Token CA (any meme → TOKEN/ETH)</label>
             <input
               className="king-input font-mono text-sm"
               placeholder="0x… meme token on Robinhood"

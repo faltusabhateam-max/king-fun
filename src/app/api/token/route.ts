@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
       market,
       dexPairs: dex.slice(0, 5),
       quote: "ETH",
-      note: "MEME/ETH only — Uniswap on Robinhood Chain",
+      note: "Any meme CA vs ETH — Uniswap on Robinhood Chain",
     });
   } catch (e) {
     return NextResponse.json(

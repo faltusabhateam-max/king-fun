@@ -1,7 +1,7 @@
 {
   "name": "KINGFUN TRADING APP",
   "short_name": "KINGFUN",
-  "description": "Robinhood Chain MEME/ETH trading terminal",
+  "description": "Robinhood Chain TOKEN/ETH trading terminal",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000b07",

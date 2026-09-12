@@ -5,7 +5,7 @@ export default function AboutPage() {
       <div className="kf-panel space-y-3 p-5 text-sm leading-relaxed text-[var(--ink)]">
         <p>
           KINGFUN is a Robinhood Chain–only meme trading terminal. Markets are
-          always <strong>MEME/ETH</strong>. You connect a wallet and sign real
+          always <strong>TOKEN/ETH</strong> (any pasted meme CA, settled in ETH). You connect a wallet and sign real
           Uniswap swaps — buys spend ETH, sells return ETH.
         </p>
         <p>

@@ -19,7 +19,7 @@ export default function LeveragePage() {
         </p>
         <ul className="list-disc space-y-1 pl-5 text-[var(--muted)]">
           <li>Lenders deposit ETH into the vault</li>
-          <li>Traders open isolated MEME/ETH longs up to 50x</li>
+          <li>Traders open isolated TOKEN/ETH longs up to 50x</li>
           <li>Vault borrows pool ETH, swaps via Uniswap V2 Router, holds tokens</li>
           <li>Close / liquidate with real repayments</li>
         </ul>

@@ -26,7 +26,7 @@ export default function DiscoverPage() {
         const res = await fetch("/api/discover");
         const data = await res.json();
         setPairs(data.pairs || []);
-        setError(data.error || (!data.ok ? "No MEME/ETH pairs returned" : null));
+        setError(data.error || (!data.ok ? "No TOKEN/ETH pairs returned" : null));
       } catch (e) {
         setError(e instanceof Error ? e.message : "Discover failed");
       } finally {
@@ -40,7 +40,7 @@ export default function DiscoverPage() {
       <div>
         <h1 className="text-xl font-black">Discover</h1>
         <p className="text-sm text-[var(--muted)]">
-          Real MEME/ETH pairs on Robinhood (DexScreener). No fake boards.
+          Real TOKEN/ETH pairs on Robinhood (any meme vs ETH) (DexScreener). No fake boards.
         </p>
       </div>
       {loading && <p className="text-sm text-[var(--muted)]">Loading…</p>}

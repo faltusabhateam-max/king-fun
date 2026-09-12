@@ -14,7 +14,7 @@ const projectId =
 const metadata = {
   name: "KINGFUN",
   description:
-    "KINGFUN TRADING APP — Robinhood Chain MEME/ETH spot on Uniswap. Connect Wallet.",
+    "KINGFUN TRADING APP — Robinhood Chain token/ETH spot on Uniswap. Connect Wallet.",
   url:
     typeof window !== "undefined"
       ? window.location.origin

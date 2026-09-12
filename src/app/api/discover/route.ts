@@ -23,6 +23,6 @@ export async function GET() {
     source: "dexscreener",
     pairs,
     error,
-    note: "Only MEME/ETH pairs on Robinhood Chain. Empty = indexer rate-limit or no pairs matched.",
+    note: "Only TOKEN/ETH pairs (ETH quote) on Robinhood Chain. Empty = indexer rate-limit or no pairs matched.",
   });
 }

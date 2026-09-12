@@ -47,7 +47,7 @@ export default function AlertsPage() {
     <div className="mx-auto max-w-xl space-y-4">
       <h1 className="text-xl font-black">Alerts</h1>
       <p className="text-sm text-[var(--muted)]">
-        Local price alerts vs real on-chain MEME/ETH marks. No fake feeds.
+        Local price alerts vs real on-chain TOKEN/ETH marks. No fake feeds.
       </p>
       <div className="kf-panel space-y-2 p-4">
         <input className="king-input font-mono text-sm" placeholder="Token CA" value={ca} onChange={(e) => setCa(e.target.value.trim())} />

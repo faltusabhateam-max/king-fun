@@ -1,4 +1,4 @@
-/** Robinhood Chain Mainnet — KINGFUN MEME/ETH trading */
+/** Robinhood Chain Mainnet — KINGFUN token/ETH trading */
 export const ROBINHOOD_CHAIN_ID = 4663;
 export const ROBINHOOD_CHAIN_ID_HEX = "0x1237";
 

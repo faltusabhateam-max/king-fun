@@ -11,10 +11,10 @@ export default async function TradePage({
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h1 className="text-xl font-black tracking-tight sm:text-2xl">
-            Trade <span className="text-[var(--accent)]">MEME/ETH</span>
+            Trade <span className="text-[var(--accent)]">TOKEN/ETH</span>
           </h1>
           <p className="text-sm text-[var(--muted)]">
-            Robinhood Chain · Uniswap · real wallet txs · no paper mode
+            Paste any meme CA · Buy with ETH / Sell for ETH · Uniswap · no paper mode
           </p>
         </div>
       </div>

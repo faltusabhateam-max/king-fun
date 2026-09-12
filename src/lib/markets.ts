@@ -104,7 +104,7 @@ export async function resolveMemeEthMarket(
     const reserveToken = tokenIs0 ? reserves.reserve0 : reserves.reserve1;
     const reserveEth = tokenIs0 ? reserves.reserve1 : reserves.reserve0;
     if (reserveEth === 0n || reserveToken === 0n) {
-      throw new Error("MEME/ETH pool has zero liquidity");
+      throw new Error("TOKEN/ETH pool has zero liquidity");
     }
     const priceEth =
       Number(formatUnits(reserveEth, 18)) /
@@ -127,7 +127,7 @@ export async function resolveMemeEthMarket(
       pool.slot0() as Promise<{ sqrtPriceX96: bigint }>,
       pool.liquidity() as Promise<bigint>,
     ]);
-    if (liq === 0n) throw new Error("MEME/ETH V3 pool has zero liquidity");
+    if (liq === 0n) throw new Error("TOKEN/ETH V3 pool has zero liquidity");
     const sqrt = Number(slot0.sqrtPriceX96) / 2 ** 96;
     const raw = sqrt * sqrt; // token1 per token0
     const token0: string = await pool.token0();
@@ -141,7 +141,7 @@ export async function resolveMemeEthMarket(
       priceEth = (1 / raw) * 10 ** (meta.decimals - 18);
     }
     if (!Number.isFinite(priceEth) || priceEth <= 0) {
-      throw new Error("Could not price MEME/ETH pool");
+      throw new Error("Could not price TOKEN/ETH pool");
     }
     return {
       ...meta,
@@ -156,7 +156,7 @@ export async function resolveMemeEthMarket(
   }
 
   throw new Error(
-    "No MEME/ETH pool on Uniswap V2/V3. Token may be V4-only or unlisted — no ETH pair found."
+    "No TOKEN/ETH pool on Uniswap V2/V3. Token may be V4-only or have no ETH pair."
   );
 }
 

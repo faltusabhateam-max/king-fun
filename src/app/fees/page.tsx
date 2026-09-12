@@ -5,7 +5,7 @@ export default function LegacyFeesPage() {
     <div className="mx-auto max-w-lg space-y-3 kf-panel p-6">
       <h1 className="text-lg font-black capitalize">fees (advanced)</h1>
       <p className="text-sm text-[var(--muted)]">
-        KINGFUN primary product is MEME/ETH trading. NFT launch tooling remains
+        KINGFUN primary product is any-meme TOKEN/ETH trading. NFT launch tooling remains
         available for advanced users but is not the home experience.
       </p>
       <Link href="/" className="king-btn-primary inline-flex">Go to Trade</Link>

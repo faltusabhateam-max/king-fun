@@ -21,18 +21,18 @@ const siteUrl =
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "KINGFUN TRADING APP — Robinhood MEME/ETH",
+    default: "KINGFUN TRADING APP — Robinhood TOKEN/ETH",
     template: "%s | KINGFUN",
   },
   description:
-    "Robinhood Chain meme coin trading terminal. Real wallet swaps MEME/ETH on Uniswap. Connect Wallet.",
+    "Robinhood Chain meme coin trading terminal. Buy any meme with ETH / sell for ETH on Uniswap. Connect Wallet.",
   applicationName: "KINGFUN",
   keywords: [
     "KINGFUN",
     "Robinhood Chain",
     "meme trading",
     "Uniswap",
-    "MEME/ETH",
+    "TOKEN/ETH",
   ],
   authors: [{ name: "KINGFUN" }],
   openGraph: {
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
     url: siteUrl,
     title: "KINGFUN TRADING APP",
     description:
-      "Robinhood Chain–only meme trading. Connect Wallet. Real MEME/ETH swaps.",
+      "Robinhood Chain–only meme trading. Connect Wallet. Real TOKEN/ETH swaps.",
     siteName: "KINGFUN",
     images: [
       {
@@ -54,7 +54,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "KINGFUN TRADING APP",
-    description: "Robinhood Chain MEME/ETH trading. Connect Wallet.",
+    description: "Robinhood Chain TOKEN/ETH trading. Connect Wallet.",
     images: ["https://kingfun-live.vercel.app/og-banner.png"],
   },
   icons: {
