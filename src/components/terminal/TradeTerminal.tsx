@@ -7,7 +7,7 @@ import {
   useAppKitProvider,
 } from "@reown/appkit/react";
 import { formatUnits } from "ethers";
-import { LiveChart, type ChartCandle, type ChartTradeMark } from "./LiveChart";
+import { LiveChart, type ChartCandle, type ChartTradeMark, type LiveTick } from "./LiveChart";
 import { swapBuyWithEth, swapSellForEth } from "@/lib/swap-client";
 import {
   openLong,
@@ -72,17 +72,7 @@ export function TradeTerminal({ initialCa = "" }: { initialCa?: string }) {
   const [loading, setLoading] = useState(false);
   const [tf, setTf] = useState<(typeof TFS)[number]>("1m");
   const [candles, setCandles] = useState<ChartCandle[]>([]);
-  const [liveTicks, setLiveTicks] = useState<ChartCandle[]>([]);
-
-  useEffect(() => {
-    const px = market?.priceEth;
-    if (!(px && px > 0)) return;
-    const now = Math.floor(Date.now() / 1000);
-    setLiveTicks((prev) => {
-      const next = [...prev, { time: now, open: px, high: px, low: px, close: px }];
-      return next.slice(-240);
-    });
-  }, [market?.priceEth]);
+  const [liveTicks, setLiveTicks] = useState<LiveTick[]>([]);
   const [candleNote, setCandleNote] = useState("");
   const [tape, setTape] = useState<TapeTrade[]>([]);
   const [tapeNote, setTapeNote] = useState("");
@@ -132,6 +122,10 @@ export function TradeTerminal({ initialCa = "" }: { initialCa?: string }) {
       if (!data.ok) throw new Error(data.error || "Load failed");
       setMarket(data.market);
       setCa(data.market.token);
+      if (data.market?.priceEth > 0) {
+        const tSec = Math.floor(Date.now() / 1000);
+        setLiveTicks([{ time: tSec, value: data.market.priceEth }]);
+      }
     } catch (e) {
       setLoadErr(e instanceof Error ? e.message : "Load failed");
     } finally {
@@ -157,8 +151,17 @@ export function TradeTerminal({ initialCa = "" }: { initialCa?: string }) {
       }
       setCandles(data.candles || []);
       setCandleNote(data.note || data.source || "");
-      if (data.market?.priceEth) {
-        setMarket((m) => (m ? { ...m, priceEth: data.market.priceEth } : m));
+      if (data.market?.priceEth > 0) {
+        const px = data.market.priceEth as number;
+        setMarket((m) => (m ? { ...m, priceEth: px } : m));
+        const tSec = Math.floor(Date.now() / 1000);
+        setLiveTicks((prev) => {
+          const next = [...prev];
+          const last = next[next.length - 1];
+          if (last && last.time === tSec) next[next.length - 1] = { time: tSec, value: px };
+          else next.push({ time: tSec, value: px });
+          return next.length > 600 ? next.slice(next.length - 600) : next;
+        });
       }
     } catch (e) {
       setCandleNote(e instanceof Error ? e.message : "Candle error");
@@ -193,6 +196,21 @@ export function TradeTerminal({ initialCa = "" }: { initialCa?: string }) {
     }
   }, [market]);
 
+  const pushLiveTick = useCallback((price: number) => {
+    if (!(price > 0)) return;
+    const tSec = Math.floor(Date.now() / 1000);
+    setLiveTicks((prev) => {
+      const next = [...prev];
+      const last = next[next.length - 1];
+      if (last && last.time === tSec) {
+        next[next.length - 1] = { time: tSec, value: price };
+      } else {
+        next.push({ time: tSec, value: price });
+      }
+      return next.length > 600 ? next.slice(next.length - 600) : next;
+    });
+  }, []);
+
   const refreshMarkPrice = useCallback(async () => {
     if (!market) return;
     try {
@@ -201,14 +219,14 @@ export function TradeTerminal({ initialCa = "" }: { initialCa?: string }) {
       );
       const data = await res.json();
       if (data.ok && data.market?.priceEth > 0) {
-        setMarket((m) =>
-          m ? { ...m, priceEth: data.market.priceEth } : m
-        );
+        const px = data.market.priceEth as number;
+        setMarket((m) => (m ? { ...m, priceEth: px } : m));
+        pushLiveTick(px);
       }
     } catch {
       /* soft */
     }
-  }, [market]);
+  }, [market, pushLiveTick]);
 
   useEffect(() => {
     refreshCandles();
@@ -469,7 +487,11 @@ export function TradeTerminal({ initialCa = "" }: { initialCa?: string }) {
   }
 
   const emptyChart =
-    !loading && market && candles.length === 0 && !(market.priceEth > 0);
+    !loading &&
+    !!market &&
+    candles.length === 0 &&
+    liveTicks.length === 0 &&
+    !(market.priceEth > 0);
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
@@ -556,9 +578,10 @@ export function TradeTerminal({ initialCa = "" }: { initialCa?: string }) {
           </div>
         ) : (
           <LiveChart
-            candles={liveTicks.length ? [...candles, ...liveTicks] : candles}
+            candles={candles}
             markPrice={market?.priceEth}
             markers={markers}
+            liveTicks={liveTicks}
             height={360}
           />
         )}
