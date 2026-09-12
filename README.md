@@ -1,6 +1,6 @@
 # KINGFUN TRADING APP
 
-Robinhood Chain–only **TOKEN/ETH** trading terminal. Real wallet swaps on Uniswap. No paper/demo mode.
+Robinhood Chain–only **TOKEN/ETH** trading terminal. Real wallet swaps on Uniswap. Live funds only.
 
 - Chain ID **4663** · RPC `https://rpc.mainnet.chain.robinhood.com`
 - Uniswap V2 Router `0x89e5DB8B5aA49aA85AC63f691524311AEB649eba`

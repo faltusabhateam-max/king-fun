@@ -10,8 +10,7 @@ export default function AboutPage() {
         </p>
         <p>
           Prices and charts come from on-chain pool state and Swap logs (and
-          DexScreener when the indexer responds). There is no paper/demo ledger
-          and no fake whale boards.
+          DexScreener when the indexer responds). No simulated balances and no fake whale boards.
         </p>
         <p>
           Leverage above 1x requires a deployed, seeded{" "}

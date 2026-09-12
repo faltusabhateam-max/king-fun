@@ -14,7 +14,7 @@ export default async function TradePage({
             Trade <span className="text-[var(--accent)]">TOKEN/ETH</span>
           </h1>
           <p className="text-sm text-[var(--muted)]">
-            Paste any meme CA · Buy with ETH / Sell for ETH · Uniswap · no paper mode
+            Paste any meme CA · Buy with ETH / Sell for ETH · Uniswap · live wallet txs
           </p>
         </div>
       </div>

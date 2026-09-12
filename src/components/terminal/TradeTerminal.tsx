@@ -405,7 +405,7 @@ export function TradeTerminal({ initialCa = "" }: { initialCa?: string }) {
 
         <p className="text-[11px] leading-relaxed text-[var(--muted)]">
           Live Spot on Uniswap (Robinhood 4663). Buys spend ETH, sells return
-          ETH. You sign every tx. No paper mode.{" "}
+          ETH. You sign every tx. Live funds only.{" "}
           {address ? `Wallet ${shortAddr(address)}` : ""}
         </p>
       </aside>
