@@ -12,7 +12,9 @@ import { swapBuyWithEth, swapSellForEth } from "@/lib/swap-client";
 import {
   openLong,
   closeLong,
+  liquidate,
   fetchOpenPositions,
+  preflightClose,
   readVaultStats,
 } from "@/lib/vault-client";
 import { ADDRESSES, explorerTx } from "@/lib/robinhood";
@@ -51,6 +53,7 @@ type PendingKind =
   | "sell"
   | "openLong"
   | "closeLong"
+  | "liquidate"
   | null;
 
 const TFS = ["1s", "1m", "5m", "15m", "1h", "4h", "1D"] as const;
@@ -96,6 +99,7 @@ export function TradeTerminal({ initialCa = "" }: { initialCa?: string }) {
       token: string;
       marginEth: string;
       debtEth: string;
+      underwater?: boolean;
     }[]
   >([]);
 
@@ -394,12 +398,50 @@ export function TradeTerminal({ initialCa = "" }: { initialCa?: string }) {
     setSheetOpen(true);
   }
 
+  function liquidateSheetDetails(id: number) {
+    const pos = positions.find((p) => p.id === id);
+    return {
+      title: `Liquidate position #${id}`,
+      mode: "Leverage" as const,
+      action:
+        "Position is underwater. Liquidate sells tokens, writes off debt, and pays a 1% liquidator reward.",
+      tokenLabel: pos ? shortAddr(pos.token) : "—",
+      amountLabel: pos
+        ? `Margin ${Number(pos.marginEth).toPrecision(4)} ETH · Debt ${Number(pos.debtEth).toPrecision(4)} ETH`
+        : undefined,
+      vaultLabel: shortAddr(ADDRESSES.marginVault),
+      footnotes: [
+        "Close cannot repay debt when sale proceeds are below debt.",
+        "Anyone can liquidate an underwater position. Confirm here, then approve in wallet.",
+      ],
+    };
+  }
+
+  function askLiquidatePosition(id: number) {
+    setStatus(null);
+    if (!isConnected || !walletProvider) {
+      open();
+      return;
+    }
+    setPendingKind("liquidate");
+    setPendingCloseId(id);
+    setSheetDetails(liquidateSheetDetails(id));
+    setSheetStatus("review");
+    setSheetMsg(undefined);
+    setSheetOpen(true);
+  }
+
   function askClosePosition(id: number) {
+    setStatus(null);
     if (!isConnected || !walletProvider) {
       open();
       return;
     }
     const pos = positions.find((p) => p.id === id);
+    if (pos?.underwater) {
+      askLiquidatePosition(id);
+      return;
+    }
     setPendingKind("closeLong");
     setPendingCloseId(id);
     setSheetDetails({
@@ -419,40 +461,49 @@ export function TradeTerminal({ initialCa = "" }: { initialCa?: string }) {
   }
 
   async function executePending() {
-    if (!walletProvider || !market || !pendingKind) return;
+    if (!walletProvider || !pendingKind) return;
+    const needsMarket =
+      pendingKind === "buy" ||
+      pendingKind === "sell" ||
+      pendingKind === "openLong";
+    if (needsMarket && !market) return;
+    const mkt = market;
     const eip = walletProvider as unknown as import("ethers").Eip1193Provider;
     setSheetStatus("waiting_wallet");
     setSheetMsg(undefined);
     try {
       let receipt;
       if (pendingKind === "buy") {
+        if (!mkt) return;
         setSheetStatus("waiting_wallet");
         const txPromise = swapBuyWithEth({
           eip1193: eip,
-          token: market.token,
+          token: mkt.token,
           ethAmount: amount,
           amountOutMin: minOut,
-          kind: market.kind,
-          fee: market.fee,
+          kind: mkt.kind,
+          fee: mkt.fee,
         });
         setSheetStatus("pending");
         receipt = await txPromise;
       } else if (pendingKind === "sell") {
+        if (!mkt) return;
         const txPromise = swapSellForEth({
           eip1193: eip,
-          token: market.token,
+          token: mkt.token,
           tokenAmount: amount,
-          decimals: market.decimals,
+          decimals: mkt.decimals,
           amountOutMin: minOut,
-          kind: market.kind,
-          fee: market.fee,
+          kind: mkt.kind,
+          fee: mkt.fee,
         });
         setSheetStatus("pending");
         receipt = await txPromise;
       } else if (pendingKind === "openLong") {
+        if (!mkt) return;
         const txPromise = openLong({
           eip1193: eip,
-          token: market.token,
+          token: mkt.token,
           leverage,
           marginEth: amount,
           amountOutMin: minOut,
@@ -460,7 +511,32 @@ export function TradeTerminal({ initialCa = "" }: { initialCa?: string }) {
         setSheetStatus("pending");
         receipt = await txPromise;
       } else if (pendingKind === "closeLong" && pendingCloseId != null) {
+        const pf = await preflightClose({
+          eip1193: eip,
+          positionId: pendingCloseId,
+        });
+        if (pf.underwater) {
+          setPendingKind("liquidate");
+          setSheetDetails(liquidateSheetDetails(pendingCloseId));
+          setSheetStatus("error");
+          setSheetMsg(
+            pf.reason ||
+              "Position is underwater. Close is blocked — tap Try again to Liquidate."
+          );
+          return;
+        }
+        if (!pf.ok) {
+          throw new Error(pf.reason || "Close would revert");
+        }
         const txPromise = closeLong({
+          eip1193: eip,
+          positionId: pendingCloseId,
+          amountOutMinEth: 0n,
+        });
+        setSheetStatus("pending");
+        receipt = await txPromise;
+      } else if (pendingKind === "liquidate" && pendingCloseId != null) {
+        const txPromise = liquidate({
           eip1193: eip,
           positionId: pendingCloseId,
           amountOutMinEth: 0n,
@@ -812,14 +888,27 @@ export function TradeTerminal({ initialCa = "" }: { initialCa?: string }) {
                 <span className="font-mono">
                   #{p.id} · m {Number(p.marginEth).toPrecision(3)} · d{" "}
                   {Number(p.debtEth).toPrecision(3)}
+                  {p.underwater ? (
+                    <span className="ml-1 text-rose-400">· underwater</span>
+                  ) : null}
                 </span>
-                <button
-                  type="button"
-                  className="king-btn-ghost px-2 py-1 text-[11px]"
-                  onClick={() => askClosePosition(p.id)}
-                >
-                  Close
-                </button>
+                {p.underwater ? (
+                  <button
+                    type="button"
+                    className="rounded-md bg-rose-500 px-2 py-1 text-[11px] font-bold text-white"
+                    onClick={() => askLiquidatePosition(p.id)}
+                  >
+                    Liquidate
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="king-btn-ghost px-2 py-1 text-[11px]"
+                    onClick={() => askClosePosition(p.id)}
+                  >
+                    Close
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -859,6 +948,7 @@ export function TradeTerminal({ initialCa = "" }: { initialCa?: string }) {
           if (sheetStatus === "waiting_wallet" || sheetStatus === "pending")
             return;
           setSheetOpen(false);
+          setSheetMsg(undefined);
           setPendingKind(null);
           setPendingCloseId(null);
         }}

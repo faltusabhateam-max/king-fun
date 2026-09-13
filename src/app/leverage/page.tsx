@@ -14,6 +14,8 @@ import {
   withdrawLender,
   fetchOpenPositions,
   closeLong,
+  liquidate,
+  preflightClose,
   readVaultStats,
   readLenderAccount,
 } from "@/lib/vault-client";
@@ -50,7 +52,13 @@ export default function LeveragePage() {
   const [depositAmt, setDepositAmt] = useState("0.1");
   const [withdrawShares, setWithdrawShares] = useState("");
   const [positions, setPositions] = useState<
-    { id: number; token: string; marginEth: string; debtEth: string }[]
+    {
+      id: number;
+      token: string;
+      marginEth: string;
+      debtEth: string;
+      underwater?: boolean;
+    }[]
   >([]);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetStatus, setSheetStatus] = useState<TxConfirmStatus>("review");
@@ -58,9 +66,9 @@ export default function LeveragePage() {
   const [sheetDetails, setSheetDetails] = useState<TxConfirmDetails | null>(
     null
   );
-  const [pending, setPending] = useState<"deposit" | "withdraw" | "close" | null>(
-    null
-  );
+  const [pending, setPending] = useState<
+    "deposit" | "withdraw" | "close" | "liquidate" | null
+  >(null);
   const [closeId, setCloseId] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
@@ -167,9 +175,46 @@ export default function LeveragePage() {
     setSheetOpen(true);
   }
 
+  function liquidateDetails(id: number) {
+    const pos = positions.find((p) => p.id === id);
+    return {
+      title: `Liquidate long #${id}`,
+      mode: "Leverage" as const,
+      action:
+        "Position is underwater. Liquidate sells tokens, writes off debt, and pays a 1% liquidator reward.",
+      tokenLabel: pos ? shortAddr(pos.token) : undefined,
+      amountLabel: pos
+        ? `Margin ${Number(pos.marginEth).toPrecision(4)} ETH · Debt ${Number(pos.debtEth).toPrecision(4)} ETH`
+        : undefined,
+      vaultLabel: shortAddr(vault),
+      footnotes: [
+        "Close cannot repay debt when sale proceeds are below debt.",
+        "Confirm here, then approve in wallet.",
+      ],
+    };
+  }
+
+  function askLiquidate(id: number) {
+    if (!isConnected || !walletProvider) {
+      open();
+      return;
+    }
+    setPending("liquidate");
+    setCloseId(id);
+    setSheetDetails(liquidateDetails(id));
+    setSheetStatus("review");
+    setSheetMsg(undefined);
+    setSheetOpen(true);
+  }
+
   function askClose(id: number) {
     if (!isConnected || !walletProvider) {
       open();
+      return;
+    }
+    const pos = positions.find((p) => p.id === id);
+    if (pos?.underwater) {
+      askLiquidate(id);
       return;
     }
     setPending("close");
@@ -178,6 +223,10 @@ export default function LeveragePage() {
       title: `Close long #${id}`,
       mode: "Leverage",
       action: "Sell position tokens, repay debt, return equity.",
+      tokenLabel: pos ? shortAddr(pos.token) : undefined,
+      amountLabel: pos
+        ? `Margin ${Number(pos.marginEth).toPrecision(4)} ETH · Debt ${Number(pos.debtEth).toPrecision(4)} ETH`
+        : undefined,
       vaultLabel: shortAddr(vault),
       footnotes: ["Confirm here, then approve in wallet."],
     });
@@ -191,6 +240,7 @@ export default function LeveragePage() {
     const provider =
       walletProvider as unknown as import("ethers").Eip1193Provider;
     setSheetStatus("waiting_wallet");
+    setSheetMsg(undefined);
     try {
       if (pending === "deposit") {
         setSheetStatus("pending");
@@ -202,8 +252,28 @@ export default function LeveragePage() {
           shares: withdrawShares.trim(),
         });
       } else if (pending === "close" && closeId != null) {
+        const pf = await preflightClose({
+          eip1193: provider,
+          positionId: closeId,
+        });
+        if (pf.underwater) {
+          setPending("liquidate");
+          setSheetDetails(liquidateDetails(closeId));
+          setSheetStatus("error");
+          setSheetMsg(
+            pf.reason ||
+              "Position is underwater. Close is blocked — tap Try again to Liquidate."
+          );
+          return;
+        }
+        if (!pf.ok) {
+          throw new Error(pf.reason || "Close would revert");
+        }
         setSheetStatus("pending");
         await closeLong({ eip1193: provider, positionId: closeId });
+      } else if (pending === "liquidate" && closeId != null) {
+        setSheetStatus("pending");
+        await liquidate({ eip1193: provider, positionId: closeId });
       }
       setSheetStatus("confirmed");
       refresh();
@@ -350,14 +420,27 @@ export default function LeveragePage() {
                 #{p.id} · {shortAddr(p.token)} · m{" "}
                 {Number(p.marginEth).toPrecision(3)} · d{" "}
                 {Number(p.debtEth).toPrecision(3)}
+                {p.underwater ? (
+                  <span className="ml-1 text-rose-400">· underwater</span>
+                ) : null}
               </span>
-              <button
-                type="button"
-                className="king-btn-ghost px-2 py-1"
-                onClick={() => askClose(p.id)}
-              >
-                Close
-              </button>
+              {p.underwater ? (
+                <button
+                  type="button"
+                  className="rounded-md bg-rose-500 px-2 py-1 font-bold text-white"
+                  onClick={() => askLiquidate(p.id)}
+                >
+                  Liquidate
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="king-btn-ghost px-2 py-1"
+                  onClick={() => askClose(p.id)}
+                >
+                  Close
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -377,6 +460,7 @@ export default function LeveragePage() {
           if (sheetStatus === "waiting_wallet" || sheetStatus === "pending")
             return;
           setSheetOpen(false);
+          setSheetMsg(undefined);
           setPending(null);
           setCloseId(null);
         }}
